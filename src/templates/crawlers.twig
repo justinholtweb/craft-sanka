@@ -1,0 +1,111 @@
+{% extends "_layouts/cp" %}
+{% import "_includes/forms" as forms %}
+
+{% set title = "AI crawlers"|t('sanka') %}
+{% set selectedSubnavItem = 'crawlers' %}
+
+{% set purposeCopy = {
+    search: {
+        heading: "Answer engines"|t('sanka'),
+        blurb: "These build the index an AI answer is written from. Blocking one removes the site from that engine’s answers — it does nothing about model training."|t('sanka'),
+    },
+    user: {
+        heading: "User requests"|t('sanka'),
+        blurb: "These fetch a page because a person just asked about it. Blocking one means a reader who explicitly wanted this page is told it could not be read."|t('sanka'),
+    },
+    training: {
+        heading: "Model training"|t('sanka'),
+        blurb: "These collect text to train a model. Blocking them costs no visibility today — this is the group most people actually mean."|t('sanka'),
+    },
+} %}
+
+{% block content %}
+    {% if staticRobots %}
+        <blockquote class="note warning">
+            <p>{{ "A static file at {path} is served before anything Craft routes, so the policy below will not reach robots.txt until it is removed — or until you paste `craft.sanka.robots()` into your own template."|t('sanka', { path: staticRobots }) }}</p>
+        </blockquote>
+    {% elseif not settings.robotsEnabled %}
+        <blockquote class="note">
+            <p>{{ "Sanka is not serving robots.txt, so this policy is advisory until you either switch that on in settings or render `craft.sanka.robots()` from your own template."|t('sanka') }}</p>
+        </blockquote>
+    {% endif %}
+
+    <form method="post" accept-charset="UTF-8" id="sanka-policy">
+        {{ csrfInput() }}
+        {{ actionInput('sanka/crawlers/policy') }}
+
+        {% for purpose, agents in grouped %}
+            <h2>{{ purposeCopy[purpose].heading }}</h2>
+            <p class="light readable">{{ purposeCopy[purpose].blurb }}</p>
+
+            <div class="tableview">
+                <table class="data fullwidth">
+                    <thead>
+                        <tr>
+                            <th>{{ "Agent"|t('sanka') }}</th>
+                            <th>{{ "What blocking it costs"|t('sanka') }}</th>
+                            <th style="width: 8rem">{{ "Policy"|t('sanka') }}</th>
+                            {% if settings.crawlerLogEnabled %}<th style="width: 6rem">{{ "Hits"|t('sanka') }}</th>{% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for agent in agents %}
+                            {% set hits = summary|filter(s => s.agent == agent.token)|first %}
+                            <tr>
+                                <td>
+                                    <strong>{{ agent.label }}</strong>
+                                    <div class="light smalltext"><code>{{ agent.token }}</code> · {{ agent.vendor }}</div>
+                                </td>
+                                <td class="light smalltext">
+                                    {{ agent.consequence }}
+                                    {% if agent.docsUrl %}
+                                        <a href="{{ agent.docsUrl }}" target="_blank" rel="noopener noreferrer">{{ "Docs"|t('sanka') }}</a>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ forms.select({
+                                        name: 'policy[' ~ agent.token ~ ']',
+                                        options: [
+                                            { label: "Allow"|t('sanka'), value: 'allow' },
+                                            { label: "Block"|t('sanka'), value: 'block' },
+                                        ],
+                                        value: settings.policyFor(agent.token),
+                                        disabled: not canManage,
+                                    }) }}
+                                </td>
+                                {% if settings.crawlerLogEnabled %}
+                                    <td class="light">{{ hits ? hits.hits : '—' }}</td>
+                                {% endif %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endfor %}
+
+        {% if canManage %}
+            {{ forms.textareaField({
+                label: "Extra robots.txt lines"|t('sanka'),
+                instructions: "Appended verbatim, after the policy and before the sitemaps."|t('sanka'),
+                id: 'robotsExtra',
+                name: 'robotsExtra',
+                value: settings.robotsExtra,
+                rows: 4,
+                class: 'code',
+            }) }}
+
+            <div class="buttons">
+                <button type="submit" class="btn submit">{{ "Save policy"|t('sanka') }}</button>
+            </div>
+        {% endif %}
+    </form>
+
+    <hr>
+
+    <h2>{{ "What this produces"|t('sanka') }}</h2>
+    <pre class="sanka-out">{{ robots }}</pre>
+{% endblock %}
+
+{% css %}
+.sanka-out { background: var(--gray-050, #f3f7fc); border-radius: 4px; padding: 12px; overflow: auto; max-height: 26rem; }
+{% endcss %}

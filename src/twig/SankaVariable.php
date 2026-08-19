@@ -1,0 +1,97 @@
+<?php
+
+declare(strict_types=1);
+
+namespace justinholtweb\sanka\twig;
+
+use Craft;
+use craft\base\ElementInterface;
+use justinholtweb\sanka\models\CrawlerAgent;
+use justinholtweb\sanka\Plugin;
+use Twig\Markup;
+
+/**
+ * `craft.sanka.*`
+ *
+ * Deliberately small. Sanka is mostly a background service, and the only things a template has a
+ * real reason to ask for are the generated files — for sites that would rather render them from
+ * their own templates than have Sanka serve them — and whether the visitor is a machine.
+ */
+class SankaVariable
+{
+    /**
+     * The `robots.txt` body, for pasting into a site's own `robots.twig`.
+     *
+     * Offered because plenty of sites already template their robots.txt and do not want a route
+     * taking it over. Returns `Markup` so it renders as-is.
+     */
+    public function robots(?int $siteId = null): Markup
+    {
+        return new Markup(Plugin::getInstance()->crawlers->robotsTxt($siteId), Craft::$app->charset);
+    }
+
+    /**
+     * The `llms.txt` body.
+     */
+    public function llms(?int $siteId = null, bool $full = false): Markup
+    {
+        $llms = Plugin::getInstance()->llms;
+
+        return new Markup($full ? $llms->full($siteId) : $llms->map($siteId), Craft::$app->charset);
+    }
+
+    /**
+     * The AI agent behind this request, if it is one.
+     *
+     * The honest use is measurement and courtesy — serving a machine a cleaner page, skipping a
+     * cookie banner it cannot dismiss. Serving it *different content* is cloaking, and every engine
+     * here penalises it.
+     */
+    public function crawler(): ?CrawlerAgent
+    {
+        $request = Craft::$app->getRequest();
+
+        if ($request->getIsConsoleRequest()) {
+            return null;
+        }
+
+        return Plugin::getInstance()->crawlers->detect((string)$request->getUserAgent());
+    }
+
+    public function isCrawler(): bool
+    {
+        return $this->crawler() !== null;
+    }
+
+    /**
+     * Everything Sanka has done with an element's URL, newest first.
+     *
+     * @return list<\justinholtweb\sanka\records\SubmissionRecord>
+     */
+    public function history(ElementInterface|string $target, int $limit = 20): array
+    {
+        $plugin = Plugin::getInstance();
+
+        $url = $target instanceof ElementInterface
+            ? $plugin->urls->forElement($target)
+            : $target;
+
+        return $url === null ? [] : $plugin->submissions->history($url, $limit);
+    }
+
+    /**
+     * The IndexNow key file URL, so a site serving its own static files can mirror it.
+     */
+    public function indexNowKeyUrl(?int $siteId = null): string
+    {
+        return Plugin::getInstance()->engines->getIndexNow()->keyUrl($siteId);
+    }
+
+    /**
+     * @return list<CrawlerAgent>
+     */
+    public function agents(?string $purpose = null): array
+    {
+        return $purpose === null ? CrawlerAgent::all() : CrawlerAgent::ofPurpose($purpose);
+    }
+}

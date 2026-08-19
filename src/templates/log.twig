@@ -1,0 +1,82 @@
+{% extends "_layouts/cp" %}
+{% import "_includes/forms" as forms %}
+
+{% set title = "Submissions"|t('sanka') %}
+{% set selectedSubnavItem = 'log' %}
+
+{% block content %}
+    <form method="get" class="sanka-filters">
+        {{ forms.select({
+            name: 'status',
+            options: [{ label: "Any status"|t('sanka'), value: '' }]|merge(statuses|map(s => { label: s, value: s })),
+            value: status,
+        }) }}
+
+        {% set engineOptions = [{ label: "Any engine"|t('sanka'), value: '' }] %}
+        {% for handle, e in engines %}
+            {% set engineOptions = engineOptions|merge([{ label: e.label, value: handle }]) %}
+        {% endfor %}
+
+        {{ forms.select({ name: 'engine', options: engineOptions, value: engine }) }}
+        {{ forms.text({ name: 'search', value: search, placeholder: "URL contains…"|t('sanka'), class: 'code' }) }}
+
+        <button type="submit" class="btn">{{ "Filter"|t('sanka') }}</button>
+
+        {% if canExport %}
+            <a class="btn" href="{{ url('sanka/log/export', { status: status, engine: engine, search: search }) }}">{{ "Export CSV"|t('sanka') }}</a>
+        {% endif %}
+    </form>
+
+    <p class="light">{{ "{total} submissions."|t('sanka', { total: total }) }}</p>
+
+    {% if rows is empty %}
+        <p class="light">{{ "Nothing matches."|t('sanka') }}</p>
+    {% else %}
+        <div class="tableview">
+            <table class="data fullwidth">
+                <thead>
+                    <tr>
+                        <th>{{ "URL"|t('sanka') }}</th>
+                        <th>{{ "Engine"|t('sanka') }}</th>
+                        <th>{{ "Change"|t('sanka') }}</th>
+                        <th>{{ "Status"|t('sanka') }}</th>
+                        <th>{{ "Why"|t('sanka') }}</th>
+                        <th>{{ "When"|t('sanka') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr>
+                            <td><a href="{{ url('sanka/log/' ~ row.id) }}"><code>{{ row.url }}</code></a></td>
+                            <td>{{ row.engine }}</td>
+                            <td class="light">{{ row.type }}</td>
+                            <td>{% include 'sanka/_components/status-badge' with { status: row.status } only %}</td>
+                            <td class="light smalltext">
+                                {{ row.message ?? row.reason }}
+                                {% if row.attempts > 1 %}<em>({{ "{n} attempts"|t('sanka', { n: row.attempts }) }})</em>{% endif %}
+                            </td>
+                            <td class="light">{{ row.dateCreated }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if pages > 1 %}
+            <nav class="sanka-pages">
+                {% if page > 1 %}
+                    <a class="btn" href="{{ url('sanka/log', { status: status, engine: engine, search: search, page: page - 1 }) }}">{{ "Newer"|t('sanka') }}</a>
+                {% endif %}
+                <span class="light">{{ "Page {page} of {pages}"|t('sanka', { page: page, pages: pages }) }}</span>
+                {% if page < pages %}
+                    <a class="btn" href="{{ url('sanka/log', { status: status, engine: engine, search: search, page: page + 1 }) }}">{{ "Older"|t('sanka') }}</a>
+                {% endif %}
+            </nav>
+        {% endif %}
+    {% endif %}
+{% endblock %}
+
+{% css %}
+.sanka-filters { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
+.sanka-pages { display: flex; gap: 1rem; align-items: center; margin-top: 1rem; }
+{% endcss %}

@@ -1,0 +1,93 @@
+{% extends "_layouts/cp" %}
+{% import "_includes/forms" as forms %}
+
+{% set title = "GEO"|t('sanka') %}
+{% set selectedSubnavItem = 'geo' %}
+
+{% block content %}
+    <h2>{{ "llms.txt"|t('sanka') }}</h2>
+
+    <p class="light readable">
+        {{ "A sitemap tells a crawler what exists. llms.txt tells a model what the site is about and which pages are worth reading — a curated map, in Markdown, at a fixed path, small enough to take in one fetch."|t('sanka') }}
+    </p>
+
+    <table class="data fullwidth">
+        <tbody>
+            <tr>
+                <th style="width: 12rem">/llms.txt</th>
+                <td>
+                    {% if settings.llmsEnabled %}
+                        <span class="status green"></span>{{ "served"|t('sanka') }}
+                        — <a href="{{ siteUrl('llms.txt') }}" target="_blank" rel="noopener"><code>{{ siteUrl('llms.txt') }}</code></a>
+                    {% else %}
+                        <span class="status"></span>{{ "off"|t('sanka') }}
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <th>/llms-full.txt</th>
+                <td>
+                    {% if settings.llmsEnabled and settings.llmsFullEnabled %}
+                        <span class="status green"></span>{{ "served"|t('sanka') }}
+                    {% else %}
+                        <span class="status"></span>{{ "off"|t('sanka') }}
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <th>{{ "Sections included"|t('sanka') }}</th>
+                <td>
+                    {% if sections %}
+                        {{ sections|map(s => s.name)|join(', ') }}
+                    {% else %}
+                        <span class="light">{{ "none — no section has URLs on this site"|t('sanka') }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p>
+        <a class="btn" href="{{ url('sanka/geo/llms') }}" target="_blank" rel="noopener">{{ "Preview llms.txt"|t('sanka') }}</a>
+        <a class="btn" href="{{ url('sanka/geo/llms', { full: 1 }) }}" target="_blank" rel="noopener">{{ "Preview llms-full.txt"|t('sanka') }}</a>
+    </p>
+
+    <hr>
+
+    <h2>{{ "Readiness audit"|t('sanka') }}</h2>
+
+    <p class="light readable">
+        {{ "Every check is deterministic and reads only the page’s own HTML — nothing is sent anywhere and nothing is scored by a model, so running it twice gives the same answer. Sanka fetches only pages on this install’s own sites."|t('sanka') }}
+    </p>
+
+    <form method="post" accept-charset="UTF-8">
+        {{ csrfInput() }}
+        {{ actionInput('sanka/geo/audit') }}
+
+        {{ forms.textField({
+            label: "URL"|t('sanka'),
+            instructions: "A page on one of this install’s sites."|t('sanka'),
+            id: 'url',
+            name: 'url',
+            class: 'code',
+            placeholder: siteUrl('/'),
+        }) }}
+
+        {{ forms.textareaField({
+            label: "…or paste HTML"|t('sanka'),
+            instructions: "Useful for auditing a page that is not published yet, or one behind a login."|t('sanka'),
+            id: 'html',
+            name: 'html',
+            rows: 5,
+            class: 'code',
+        }) }}
+
+        <div class="buttons">
+            <button type="submit" class="btn submit">{{ "Audit"|t('sanka') }}</button>
+        </div>
+    </form>
+
+    {% if report is defined and report %}
+        {% include 'sanka/_components/report' with { report: report, dimensions: dimensions } only %}
+    {% endif %}
+{% endblock %}

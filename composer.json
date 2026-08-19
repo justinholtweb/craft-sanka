@@ -1,0 +1,64 @@
+{
+    "name": "justinholtweb/craft-sanka",
+    "description": "Instant indexing and GEO for Craft CMS — push URLs to Google's Indexing API and IndexNow the moment they change, then manage, log and audit how AI search engines read your site.",
+    "version": "5.0.0",
+    "type": "craft-plugin",
+    "keywords": [
+        "craftcms",
+        "craft-plugin",
+        "seo",
+        "geo",
+        "indexing",
+        "indexnow",
+        "google-indexing-api",
+        "llms-txt",
+        "ai-crawlers",
+        "generative-engine-optimization"
+    ],
+    "license": "proprietary",
+    "authors": [
+        {
+            "name": "Justin Holt",
+            "homepage": "https://justinholt.com"
+        }
+    ],
+    "support": {
+        "email": "justin@justinholt.com",
+        "issues": "https://github.com/justinholtweb/craft-sanka/issues",
+        "source": "https://github.com/justinholtweb/craft-sanka"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "require": {
+        "php": "^8.2",
+        "ext-json": "*",
+        "ext-mbstring": "*",
+        "ext-openssl": "*",
+        "craftcms/cms": "^5.3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "justinholtweb\\sanka\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "justinholtweb\\sanka\\tests\\": "tests/"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "craftcms/plugin-installer": true,
+            "yiisoft/yii2-composer": true
+        }
+    },
+    "extra": {
+        "name": "Sanka",
+        "handle": "sanka",
+        "developer": "Justin Holt",
+        "developerUrl": "https://justinholt.com",
+        "documentationUrl": "https://github.com/justinholtweb/craft-sanka/blob/main/README.md",
+        "changelogUrl": "https://raw.githubusercontent.com/justinholtweb/craft-sanka/main/CHANGELOG.md",
+        "class": "justinholtweb\\sanka\\Plugin"
+    }
+}

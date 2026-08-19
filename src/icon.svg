@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+  <!-- The lid: a jar of instant, not a cup. -->
+  <path d="M5.2 2.4h13.6a1.3 1.3 0 0 1 1.3 1.3v1.6a1.3 1.3 0 0 1-1.3 1.3H5.2a1.3 1.3 0 0 1-1.3-1.3V3.7a1.3 1.3 0 0 1 1.3-1.3Z"/>
+  <!-- The jar, with the bolt punched straight through it. -->
+  <path fill-rule="evenodd" d="M7 7.6h10a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-8a3 3 0 0 1 3-3Zm6.35 2.05-4.1 6.2a.35.35 0 0 0 .29.55h2.02l-1.02 3.44a.35.35 0 0 0 .62.29l4.3-6.28a.35.35 0 0 0-.29-.55h-2.05l1.05-3.36a.35.35 0 0 0-.62-.29Z"/>
+</svg>

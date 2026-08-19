@@ -1,0 +1,379 @@
+{% import "_includes/forms" as forms %}
+
+{% if editionProblems %}
+    <div class="readable">
+        <blockquote class="note warning">
+            <p><strong>{{ "This configuration needs Pro."|t('sanka') }}</strong></p>
+            <ul>
+                {% for problem in editionProblems %}<li>{{ problem }}</li>{% endfor %}
+            </ul>
+            <p class="light">{{ "Sanka keeps working meanwhile — the Lite feature set stays on and nothing configured here is discarded."|t('sanka') }}</p>
+        </blockquote>
+    </div>
+{% endif %}
+
+<h2>{{ "Submitting"|t('sanka') }}</h2>
+
+{{ forms.lightswitchField({
+    label: "Dry run"|t('sanka'),
+    instructions: "Nothing leaves the server. Every submission is recorded in the log with what *would* have been sent, so you can watch Sanka for a week before letting it talk to anyone. On by default on a fresh install — turn it off when the log looks right."|t('sanka'),
+    id: 'dryRun',
+    name: 'dryRun',
+    on: settings.dryRun,
+    errors: settings.getErrors('dryRun'),
+}) }}
+
+{{ forms.lightswitchField({
+    label: "Submit automatically"|t('sanka'),
+    instructions: "Queue a submission whenever an entry a rule covers is created, changed or removed. With this off, only the Submit screen and the console commands submit anything."|t('sanka'),
+    id: 'autoSubmit',
+    name: 'autoSubmit',
+    on: settings.autoSubmit,
+}) }}
+
+{% set sectionOptions = [{ label: "Every section"|t('sanka'), value: '*' }] %}
+{% for section in sections|filter(s => s.type != 'single') %}
+    {% set sectionOptions = sectionOptions|merge([{ label: section.name, value: section.handle }]) %}
+{% endfor %}
+
+{{ forms.editableTableField({
+    label: "Rules"|t('sanka'),
+    instructions: "What gets submitted, and where to. With no rules, saving an entry submits nothing — that is the default, so Sanka never starts spending quota on its own."|t('sanka'),
+    id: 'autoSubmitRules',
+    name: 'autoSubmitRules',
+    cols: {
+        enabled: { type: 'lightswitch', heading: "On"|t('sanka'), thin: true },
+        section: { type: 'select', heading: "Section"|t('sanka'), options: sectionOptions },
+        create: { type: 'checkbox', heading: "New"|t('sanka'), thin: true },
+        update: { type: 'checkbox', heading: "Changed"|t('sanka'), thin: true },
+        delete: { type: 'checkbox', heading: "Removed"|t('sanka'), thin: true },
+        google: { type: 'checkbox', heading: "Google"|t('sanka'), thin: true },
+        indexnow: { type: 'checkbox', heading: "IndexNow"|t('sanka'), thin: true },
+        sitemap: { type: 'checkbox', heading: "Sitemap"|t('sanka'), thin: true },
+    },
+    rows: settings.getAutoRules()|map(r => r.toColumns()),
+    addRowLabel: "Add a rule"|t('sanka'),
+    allowAdd: true,
+    allowDelete: true,
+    allowReorder: true,
+    errors: settings.getErrors('autoSubmitRules'),
+}) }}
+
+{{ forms.lightswitchField({
+    label: "Allow unreachable hosts"|t('sanka'),
+    instructions: "Let URLs on `.ddev.site`, `.test`, `localhost` or a private address be submitted. They will be rejected by every engine — this exists so the submission path can be exercised locally, not because it will work."|t('sanka'),
+    id: 'allowLocalHosts',
+    name: 'allowLocalHosts',
+    on: settings.allowLocalHosts,
+}) }}
+
+{{ forms.textField({
+    label: "Cooldown"|t('sanka'),
+    instructions: "Seconds before the same URL may go to the same engine again. This is what stops twenty saves while editing costing twenty of Google’s two hundred daily submissions. Set to 0 to disable it, and expect to notice."|t('sanka'),
+    id: 'cooldown',
+    name: 'cooldown',
+    value: settings.cooldown,
+    type: 'number',
+    size: 8,
+    unit: "seconds"|t('sanka'),
+    errors: settings.getErrors('cooldown'),
+}) }}
+
+{{ forms.textField({
+    label: "Retries"|t('sanka'),
+    instructions: "How many times a submission that failed for a reason worth retrying — a rate limit, an outage — is attempted before it gives up and says so."|t('sanka'),
+    id: 'maxAttempts',
+    name: 'maxAttempts',
+    value: settings.maxAttempts,
+    type: 'number',
+    size: 6,
+    errors: settings.getErrors('maxAttempts'),
+}) }}
+
+{{ forms.textField({
+    label: "Retry backoff"|t('sanka'),
+    instructions: "Seconds before the first retry. It doubles after each attempt."|t('sanka'),
+    id: 'retryBackoff',
+    name: 'retryBackoff',
+    value: settings.retryBackoff,
+    type: 'number',
+    size: 8,
+    unit: "seconds"|t('sanka'),
+    errors: settings.getErrors('retryBackoff'),
+}) }}
+
+{{ forms.textField({
+    label: "Keep submissions for"|t('sanka'),
+    instructions: "Days of history kept. Garbage collection removes older rows, except anything still waiting to be sent."|t('sanka'),
+    id: 'retentionDays',
+    name: 'retentionDays',
+    value: settings.retentionDays,
+    type: 'number',
+    size: 6,
+    unit: "days"|t('sanka'),
+    errors: settings.getErrors('retentionDays'),
+}) }}
+
+{% if isPro %}
+    {{ forms.lightswitchField({
+        label: "Scheduled sweeps"|t('sanka'),
+        instructions: "Let `php craft sanka/queue/sweep` queue anything that changed recently and was not submitted at the time — a deploy that resaved entries, a queue that was down, an entry going live on its post date with nobody saving anything. Run it from cron."|t('sanka'),
+        id: 'sweepEnabled',
+        name: 'sweepEnabled',
+        on: settings.sweepEnabled,
+    }) }}
+
+    {{ forms.textField({
+        label: "Sweep window"|t('sanka'),
+        instructions: "How far back a sweep looks. The window is its own bookmark, so overlapping runs cost nothing — the cooldown absorbs them."|t('sanka'),
+        id: 'sweepWindow',
+        name: 'sweepWindow',
+        value: settings.sweepWindow,
+        type: 'number',
+        size: 10,
+        unit: "seconds"|t('sanka'),
+        errors: settings.getErrors('sweepWindow'),
+    }) }}
+{% endif %}
+
+<hr>
+
+<h2>{{ "Google Indexing API"|t('sanka') }}</h2>
+
+<div class="readable">
+    <p class="light">
+        {{ "Google documents this API as being for pages carrying JobPosting or BroadcastEvent markup. In practice it is used much more widely, and it works. That is worth knowing rather than being told nothing about — it is your call to make."|t('sanka') }}
+    </p>
+</div>
+
+{{ forms.lightswitchField({
+    label: "Use the Google Indexing API"|t('sanka'),
+    id: 'googleEnabled',
+    name: 'googleEnabled',
+    on: settings.googleEnabled,
+}) }}
+
+{{ forms.textareaField({
+    label: "Service account key"|t('sanka'),
+    instructions: "Paste the JSON Google Cloud downloaded, or give the path to the file. Create the service account in a project with the Indexing API enabled, then **add its client email as an owner of the property in Search Console** — that second step is the one everybody misses, and it is what a 403 means."|t('sanka'),
+    id: 'googleCredentials',
+    name: 'googleCredentials',
+    value: settings.googleCredentials,
+    rows: 5,
+    class: 'code',
+    placeholder: '{"type":"service_account", …}  —  or  /var/www/keys/indexing.json',
+    errors: settings.getErrors('googleCredentials'),
+}) }}
+
+{% if settings.credentialSummary() %}
+    <p class="light">{{ "Currently using"|t('sanka') }} <code>{{ settings.credentialSummary() }}</code></p>
+{% endif %}
+
+{{ forms.textField({
+    label: "Daily quota"|t('sanka'),
+    instructions: "Google’s default is 200 publishes per Cloud **project** per day, resetting at midnight Pacific. Two Craft installs sharing one key share the 200. Raise this only if Google has granted you more."|t('sanka'),
+    id: 'googleDailyQuota',
+    name: 'googleDailyQuota',
+    value: settings.googleDailyQuota,
+    type: 'number',
+    size: 8,
+    errors: settings.getErrors('googleDailyQuota'),
+}) }}
+
+<hr>
+
+<h2>{{ "IndexNow"|t('sanka') }}</h2>
+
+<div class="readable">
+    <p class="light">
+        {{ "One submission reaches Bing, Yandex, Seznam, Naver and Yep, because they share submissions between themselves. Bing’s index is what ChatGPT Search and Copilot answer from, which makes this the shortest path from publishing to an answer engine knowing the page exists. Google does not participate."|t('sanka') }}
+    </p>
+</div>
+
+{{ forms.lightswitchField({
+    label: "Use IndexNow"|t('sanka'),
+    id: 'indexNowEnabled',
+    name: 'indexNowEnabled',
+    on: settings.indexNowEnabled,
+}) }}
+
+{{ forms.textField({
+    label: "Key"|t('sanka'),
+    instructions: "8–128 characters of letters, numbers and dashes. Sanka serves the key file itself from the site root, so there is nothing to upload and nothing to redeploy when it changes."|t('sanka'),
+    id: 'indexNowKey',
+    name: 'indexNowKey',
+    value: settings.indexNowKey,
+    class: 'code',
+    errors: settings.getErrors('indexNowKey'),
+}) }}
+
+{% if settings.indexNowKey %}
+    <p class="light">
+        {{ "Key file"|t('sanka') }}:
+        <a href="{{ engines.indexnow.keyUrl() }}" target="_blank" rel="noopener"><code>{{ engines.indexnow.keyUrl() }}</code></a>
+        — {{ "the engines fetch this to confirm you control the host, so it has to be publicly reachable."|t('sanka') }}
+    </p>
+{% endif %}
+
+{% set endpointOptions = [] %}
+{% for host, label in constant('justinholtweb\\sanka\\engines\\IndexNowEngine::ENDPOINTS') %}
+    {% set endpointOptions = endpointOptions|merge([{ label: label, value: host }]) %}
+{% endfor %}
+
+{{ forms.selectField({
+    label: "Endpoint"|t('sanka'),
+    instructions: "Which participating engine receives the submission. They pass it on to each other, so this is a preference and not a fan-out — submitting to all of them would be the same submission counted five times for no extra reach."|t('sanka'),
+    id: 'indexNowEndpoint',
+    name: 'indexNowEndpoint',
+    options: endpointOptions,
+    value: settings.indexNowEndpoint,
+    errors: settings.getErrors('indexNowEndpoint'),
+}) }}
+
+<hr>
+
+<h2>{{ "Sitemaps"|t('sanka') }}{% if not isPro %} <span class="light">— {{ "Pro"|t('sanka') }}</span>{% endif %}</h2>
+
+<div class="readable">
+    <p class="light">
+        {{ "Google retired its sitemap ping endpoint in 2023; there is no API left to hurry it. What still works is asking the IndexNow engines to re-read a sitemap — one call that can move thousands of pages, which is what you want after a migration or a bulk change rather than spending a day’s quota one URL at a time."|t('sanka') }}
+    </p>
+</div>
+
+{{ forms.lightswitchField({
+    label: "Resubmit sitemaps"|t('sanka'),
+    id: 'sitemapEnabled',
+    name: 'sitemapEnabled',
+    on: settings.sitemapEnabled,
+    disabled: not isPro,
+}) }}
+
+{{ forms.editableTableField({
+    label: "Sitemap URLs"|t('sanka'),
+    instructions: "Leave empty to use each site’s `/sitemap.xml`."|t('sanka'),
+    id: 'sitemapUrls',
+    name: 'sitemapUrls',
+    cols: {
+        url: { type: 'singleline', heading: "URL"|t('sanka'), code: true, placeholder: 'https://example.com/sitemap.xml' },
+    },
+    rows: settings.sitemapUrls|map(u => { url: u }),
+    addRowLabel: "Add a sitemap"|t('sanka'),
+    allowAdd: true,
+    allowDelete: true,
+    allowReorder: true,
+    errors: settings.getErrors('sitemapUrls'),
+}) }}
+
+<hr>
+
+<h2>{{ "GEO"|t('sanka') }}{% if not isPro %} <span class="light">— {{ "Pro"|t('sanka') }}</span>{% endif %}</h2>
+
+<div class="readable">
+    <p class="light">
+        {{ "A sitemap tells a crawler what exists. llms.txt tells a language model what the site is about and which pages are worth reading — a curated map, in Markdown, at a fixed path, that a model can take in one fetch."|t('sanka') }}
+    </p>
+</div>
+
+{{ forms.lightswitchField({
+    label: "Serve /llms.txt"|t('sanka'),
+    id: 'llmsEnabled',
+    name: 'llmsEnabled',
+    on: settings.llmsEnabled,
+    disabled: not isPro,
+}) }}
+
+{{ forms.lightswitchField({
+    label: "Serve /llms-full.txt as well"|t('sanka'),
+    instructions: "The same map with the body text inlined. Much larger, and worth it only for sites whose whole value is the writing — documentation, reference, a handbook."|t('sanka'),
+    id: 'llmsFullEnabled',
+    name: 'llmsFullEnabled',
+    on: settings.llmsFullEnabled,
+    disabled: not isPro,
+}) }}
+
+{{ forms.textareaField({
+    label: "Summary"|t('sanka'),
+    instructions: "One or two sentences, quoted at the top of the file. This is the first thing a model reads about the site — say what it is and who it is for, not what you would like to rank for."|t('sanka'),
+    id: 'llmsSummary',
+    name: 'llmsSummary',
+    value: settings.llmsSummary,
+    rows: 3,
+}) }}
+
+{% set llmsSectionOptions = [] %}
+{% for section in sections|filter(s => s.type != 'single') %}
+    {% set llmsSectionOptions = llmsSectionOptions|merge([{ label: section.name, value: section.handle }]) %}
+{% endfor %}
+
+{{ forms.checkboxSelectField({
+    label: "Sections to include"|t('sanka'),
+    instructions: "Leave everything unticked to include every section that has URLs."|t('sanka'),
+    id: 'llmsSections',
+    name: 'llmsSections',
+    options: llmsSectionOptions,
+    values: settings.llmsSections,
+    showAllOption: false,
+}) }}
+
+{{ forms.textField({
+    label: "Cache the generated files for"|t('sanka'),
+    instructions: "Seconds. The cache is cleared whenever an entry is saved anyway, so this is the ceiling rather than the usual age. 0 rebuilds on every request."|t('sanka'),
+    id: 'llmsCacheDuration',
+    name: 'llmsCacheDuration',
+    value: settings.llmsCacheDuration,
+    type: 'number',
+    size: 8,
+    unit: "seconds"|t('sanka'),
+    errors: settings.getErrors('llmsCacheDuration'),
+}) }}
+
+{{ forms.lightswitchField({
+    label: "Serve /robots.txt"|t('sanka'),
+    instructions: "Let Sanka generate robots.txt from the AI crawler policy. Leave this off if the site already templates its own — the policy is available as `craft.sanka.robots()` for pasting into it."|t('sanka'),
+    id: 'robotsEnabled',
+    name: 'robotsEnabled',
+    on: settings.robotsEnabled,
+    disabled: not isPro,
+}) }}
+
+{% if staticRobots %}
+    <blockquote class="note warning">
+        <p>{{ "A static file exists at {path} and is served before anything Craft routes, so the setting above would appear to work and do nothing. Delete that file to let Sanka serve robots.txt."|t('sanka', { path: staticRobots }) }}</p>
+    </blockquote>
+{% endif %}
+
+{{ forms.textareaField({
+    label: "Extra robots.txt lines"|t('sanka'),
+    instructions: "Appended verbatim, after the crawler policy and before the sitemaps."|t('sanka'),
+    id: 'robotsExtra',
+    name: 'robotsExtra',
+    value: settings.robotsExtra,
+    rows: 4,
+    class: 'code',
+}) }}
+
+{{ forms.lightswitchField({
+    label: "Log AI crawler visits"|t('sanka'),
+    instructions: "Record every request from a recognised AI agent — which one, what it read, and what it got. Costs one regex per front-end request and nothing at all on a miss."|t('sanka'),
+    id: 'crawlerLogEnabled',
+    name: 'crawlerLogEnabled',
+    on: settings.crawlerLogEnabled,
+    disabled: not isPro,
+}) }}
+
+{{ forms.textField({
+    label: "Keep crawler visits for"|t('sanka'),
+    id: 'crawlerRetentionDays',
+    name: 'crawlerRetentionDays',
+    value: settings.crawlerRetentionDays,
+    type: 'number',
+    size: 6,
+    unit: "days"|t('sanka'),
+    errors: settings.getErrors('crawlerRetentionDays'),
+}) }}
+
+<p class="light">
+    {{ "Which agents may crawl is set on the"|t('sanka') }}
+    <a href="{{ url('sanka/crawlers') }}">{{ "AI crawlers screen"|t('sanka') }}</a>,
+    {{ "where each one is labelled with what blocking it actually costs."|t('sanka') }}
+</p>

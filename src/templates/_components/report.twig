@@ -1,0 +1,60 @@
+{% set dimensionLabels = {
+    structure: "Structure"|t('sanka'),
+    attribution: "Attribution"|t('sanka'),
+    machine: "Machine readability"|t('sanka'),
+    citability: "Citability"|t('sanka'),
+} %}
+
+{% set score = report.score() %}
+{% set scores = report.scores() %}
+
+<div class="sanka-report">
+    <div class="sanka-score sanka-score--{{ score >= 80 ? 'good' : (score >= 55 ? 'fair' : 'poor') }}">
+        <strong>{{ score }}</strong><span>/100</span>
+    </div>
+
+    <ul class="sanka-dimensions">
+        {% for dimension in dimensions %}
+            <li>
+                <span class="light">{{ dimensionLabels[dimension] ?? dimension }}</span>
+                <strong>{{ scores[dimension] }}</strong>
+            </li>
+        {% endfor %}
+    </ul>
+
+    <p class="light"><code>{{ report.url }}</code> — {{ "{bytes} bytes examined"|t('sanka', { bytes: report.bytes }) }}</p>
+
+    {% for dimension in dimensions %}
+        {% set findings = report.ofDimension(dimension) %}
+        {% if findings %}
+            <h3>{{ dimensionLabels[dimension] ?? dimension }}</h3>
+            <ul class="sanka-findings">
+                {% for finding in findings %}
+                    <li class="sanka-finding sanka-finding--{{ finding.status }}">
+                        <span class="status {{ finding.status == 'pass' ? 'green' : (finding.status == 'warn' ? 'orange' : 'red') }}"></span>
+                        <div>
+                            <strong>{{ finding.label }}</strong> — {{ finding.message }}
+                            {% if finding.remediation %}
+                                <div class="light smalltext">{{ finding.remediation }}</div>
+                            {% endif %}
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    {% endfor %}
+</div>
+
+{% css %}
+.sanka-report { margin-top: 1.5rem; }
+.sanka-score { font-size: 2.6rem; line-height: 1; font-weight: 700; }
+.sanka-score span { font-size: 1rem; font-weight: 400; color: var(--medium-text-color, #606d7b); }
+.sanka-score--good { color: #27ab83; }
+.sanka-score--fair { color: #cb6e17; }
+.sanka-score--poor { color: #cf1124; }
+.sanka-dimensions { display: flex; gap: 2rem; list-style: none; padding: 0; margin: .75rem 0 1rem; }
+.sanka-dimensions strong { display: block; font-size: 1.2rem; }
+.sanka-findings { list-style: none; padding: 0; margin: 0 0 1.25rem; }
+.sanka-finding { display: flex; gap: .5rem; align-items: flex-start; padding: .35rem 0; border-bottom: 1px solid var(--hairline-color, #e3e5e8); }
+.sanka-finding .status { margin-top: .45rem; flex: 0 0 auto; }
+{% endcss %}

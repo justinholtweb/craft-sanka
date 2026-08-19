@@ -1,0 +1,152 @@
+{% extends "_layouts/cp" %}
+{% import "_includes/forms" as forms %}
+
+{% set title = "Submit"|t('sanka') %}
+{% set selectedSubnavItem = 'submit' %}
+
+{% set engineOptions = [] %}
+{% for handle, engine in engines %}
+    {% set engineOptions = engineOptions|merge([{
+        label: engine.label ~ (handle in usable ? '' : ' — ' ~ "not usable"|t('sanka')),
+        value: handle,
+        disabled: handle not in usable,
+    }]) %}
+{% endfor %}
+
+{% block content %}
+    {% if usable is empty %}
+        <blockquote class="note warning">
+            <p>{{ "No engine is both switched on and configured, so nothing can be submitted yet."|t('sanka') }}
+               <a href="{{ url('settings/plugins/sanka') }}">{{ "Settings"|t('sanka') }}</a>.</p>
+        </blockquote>
+    {% endif %}
+
+    <form method="post" accept-charset="UTF-8">
+        {{ csrfInput() }}
+        {{ actionInput('sanka/submit/urls') }}
+
+        {{ forms.textareaField({
+            label: "URLs"|t('sanka'),
+            instructions: "One per line. They must be absolute and on a host one of this install’s sites is served from — anything else is refused here rather than being spent on an engine that would refuse it too."|t('sanka'),
+            id: 'urls',
+            name: 'urls',
+            rows: 8,
+            class: 'code',
+            placeholder: 'https://example.com/a-page',
+        }) }}
+
+        {{ forms.checkboxSelectField({
+            label: "Engines"|t('sanka'),
+            instructions: "Leave everything unticked to use every usable engine."|t('sanka'),
+            id: 'engines',
+            name: 'engines',
+            options: engineOptions,
+            values: [],
+            showAllOption: false,
+        }) }}
+
+        {{ forms.selectField({
+            label: "What changed"|t('sanka'),
+            instructions: "“Removed” tells the engines to drop the URL. Only send it for pages that really are gone — asking an engine to drop a live page works."|t('sanka'),
+            id: 'type',
+            name: 'type',
+            options: [
+                { label: "Added or updated"|t('sanka'), value: 'update' },
+                { label: "Removed"|t('sanka'), value: 'delete' },
+            ],
+        }) }}
+
+        <div class="buttons">
+            <button type="submit" class="btn submit">{{ "Submit now"|t('sanka') }}</button>
+        </div>
+    </form>
+
+    <hr>
+
+    <h2>{{ "Ask Google about a URL"|t('sanka') }}</h2>
+
+    <p class="light">
+        {{ "The only read-only call Sanka makes. It is the difference between “Google accepted my notification” and “Google acted on it”."|t('sanka') }}
+    </p>
+
+    {{ forms.text({
+        id: 'sanka-status-url',
+        placeholder: 'https://example.com/a-page',
+        class: 'code fullwidth',
+    }) }}
+
+    <p><button type="button" class="btn" id="sanka-status-go">{{ "Check"|t('sanka') }}</button></p>
+    <pre id="sanka-status-out" class="sanka-out" hidden></pre>
+
+    {% if canBulk %}
+        <hr>
+        <h2>{{ "Submit a whole section"|t('sanka') }}</h2>
+
+        <blockquote class="note">
+            <p>{{ "On a large site this is the button that spends a day’s quota. Submissions are queued, not sent all at once, and go out as quota allows."|t('sanka') }}</p>
+        </blockquote>
+
+        <form method="post" accept-charset="UTF-8">
+            {{ csrfInput() }}
+            {{ actionInput('sanka/submit/section') }}
+
+            {% set sectionOptions = [] %}
+            {% for section in sections|filter(s => s.type != 'single') %}
+                {% set sectionOptions = sectionOptions|merge([{ label: section.name, value: section.handle }]) %}
+            {% endfor %}
+
+            {{ forms.selectField({
+                label: "Section"|t('sanka'),
+                id: 'section',
+                name: 'section',
+                options: sectionOptions,
+            }) }}
+
+            <div class="buttons">
+                <button type="submit" class="btn">{{ "Queue every live entry"|t('sanka') }}</button>
+            </div>
+        </form>
+
+        {% if sitemaps %}
+            <h2>{{ "Resubmit sitemaps"|t('sanka') }}</h2>
+            <ul>
+                {% for sitemap in sitemaps %}<li><code>{{ sitemap }}</code></li>{% endfor %}
+            </ul>
+            <form method="post" accept-charset="UTF-8">
+                {{ csrfInput() }}
+                {{ actionInput('sanka/submit/sitemaps') }}
+                <div class="buttons">
+                    <button type="submit" class="btn">{{ "Resubmit"|t('sanka') }}</button>
+                </div>
+            </form>
+        {% endif %}
+    {% endif %}
+{% endblock %}
+
+{% css %}
+.sanka-out { background: var(--gray-050, #f3f7fc); border-radius: 4px; padding: 12px; overflow: auto; max-height: 22rem; }
+{% endcss %}
+
+{% js %}
+document.getElementById('sanka-status-go')?.addEventListener('click', function() {
+    var url = document.getElementById('sanka-status-url').value.trim();
+    var out = document.getElementById('sanka-status-out');
+
+    if (!url) { return; }
+
+    out.hidden = false;
+    out.textContent = Craft.t('sanka', 'Asking Google…');
+
+    Craft.sendActionRequest('GET', 'sanka/submit/status', { params: { url: url } })
+        .then(function(response) {
+            var data = response.data;
+            if (!data.success) { out.textContent = data.error; return; }
+            out.textContent = data.known
+                ? JSON.stringify(data.metadata, null, 2)
+                : Craft.t('sanka', 'Google has no record of that URL.');
+        })
+        .catch(function(error) {
+            out.textContent = error?.response?.data?.error || Craft.t('sanka', 'The request failed.');
+        });
+});
+{% endjs %}

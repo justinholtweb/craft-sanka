@@ -1,0 +1,62 @@
+{% extends "_layouts/cp" %}
+
+{% set title = "Submission"|t('sanka') %}
+{% set selectedSubnavItem = 'log' %}
+{% set crumbs = [{ label: "Submissions"|t('sanka'), url: url('sanka/log') }] %}
+
+{% block content %}
+    <h2><code>{{ row.url }}</code></h2>
+
+    <table class="data fullwidth">
+        <tbody>
+            <tr><th>{{ "Engine"|t('sanka') }}</th><td>{{ engine ? engine.label : row.engine }}</td></tr>
+            <tr><th>{{ "Change"|t('sanka') }}</th><td>{{ row.type }}</td></tr>
+            <tr><th>{{ "Status"|t('sanka') }}</th><td>{% include 'sanka/_components/status-badge' with { status: row.status } only %}</td></tr>
+            <tr><th>{{ "Queued because"|t('sanka') }}</th><td>{{ row.reason }}</td></tr>
+            <tr><th>{{ "Attempts"|t('sanka') }}</th><td>{{ row.attempts }}</td></tr>
+            {% if row.statusCode %}<tr><th>{{ "HTTP"|t('sanka') }}</th><td>{{ row.statusCode }}</td></tr>{% endif %}
+            {% if row.message %}<tr><th>{{ "What happened"|t('sanka') }}</th><td>{{ row.message }}</td></tr>{% endif %}
+            {% if row.nextAttempt %}<tr><th>{{ "Next attempt"|t('sanka') }}</th><td>{{ row.nextAttempt }}</td></tr>{% endif %}
+            <tr><th>{{ "Queued"|t('sanka') }}</th><td>{{ row.dateCreated }}</td></tr>
+            {% if row.dateSent %}<tr><th>{{ "Sent"|t('sanka') }}</th><td>{{ row.dateSent }}</td></tr>{% endif %}
+        </tbody>
+    </table>
+
+    {% if canSubmit %}
+        <form method="post" accept-charset="UTF-8">
+            {{ csrfInput() }}
+            {{ actionInput('sanka/log/retry') }}
+            {{ hiddenInput('submissionId', row.id) }}
+            <div class="buttons">
+                <button type="submit" class="btn">{{ "Submit this again"|t('sanka') }}</button>
+            </div>
+        </form>
+    {% endif %}
+
+    <h2>{{ "Everything Sanka has done with this URL"|t('sanka') }}</h2>
+
+    <div class="tableview">
+        <table class="data fullwidth">
+            <thead>
+                <tr>
+                    <th>{{ "When"|t('sanka') }}</th>
+                    <th>{{ "Engine"|t('sanka') }}</th>
+                    <th>{{ "Change"|t('sanka') }}</th>
+                    <th>{{ "Status"|t('sanka') }}</th>
+                    <th>{{ "Message"|t('sanka') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in history %}
+                    <tr{% if item.id == row.id %} class="sel"{% endif %}>
+                        <td class="light">{{ item.dateCreated }}</td>
+                        <td>{{ item.engine }}</td>
+                        <td class="light">{{ item.type }}</td>
+                        <td>{% include 'sanka/_components/status-badge' with { status: item.status } only %}</td>
+                        <td class="light smalltext">{{ item.message }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

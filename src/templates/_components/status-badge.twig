@@ -1,0 +1,9 @@
+{# One badge, so the four statuses look the same everywhere they appear. #}
+{% set colours = { sent: 'green', pending: 'blue', skipped: 'grey', failed: 'red' } %}
+{% set labels = {
+    sent: "sent"|t('sanka'),
+    pending: "waiting"|t('sanka'),
+    skipped: "skipped"|t('sanka'),
+    failed: "failed"|t('sanka'),
+} %}
+<span class="status {{ colours[status] ?? 'grey' }}"></span>{{ labels[status] ?? status }}

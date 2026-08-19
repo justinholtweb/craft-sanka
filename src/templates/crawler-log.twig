@@ -1,0 +1,120 @@
+{% extends "_layouts/cp" %}
+
+{% set title = "AI crawler log"|t('sanka') %}
+{% set selectedSubnavItem = 'crawlers' %}
+{% set crumbs = [{ label: "AI crawlers"|t('sanka'), url: url('sanka/crawlers') }] %}
+
+{% block content %}
+    {% if not settings.crawlerLogEnabled %}
+        <blockquote class="note warning">
+            <p>{{ "The visit log is switched off, so nothing new is being recorded."|t('sanka') }}
+               <a href="{{ url('settings/plugins/sanka') }}">{{ "Settings"|t('sanka') }}</a>.</p>
+        </blockquote>
+    {% endif %}
+
+    <blockquote class="note">
+        <p>{{ "A user agent is one line of curl to forge. Until a row has been verified it only says that something *claimed* to be that agent — verification is forward-confirmed reverse DNS, and it runs from `php craft sanka/crawlers/verify` or the button below."|t('sanka') }}</p>
+    </blockquote>
+
+    {% if canManage %}
+        <form method="post" accept-charset="UTF-8">
+            {{ csrfInput() }}
+            {{ actionInput('sanka/crawlers/verify') }}
+            <div class="buttons">
+                <button type="submit" class="btn">{{ "Verify unchecked visits"|t('sanka') }}</button>
+            </div>
+        </form>
+    {% endif %}
+
+    <h2>{{ "Who came"|t('sanka') }}</h2>
+
+    {% if summary is empty %}
+        <p class="light">{{ "Nothing recorded yet."|t('sanka') }}</p>
+    {% else %}
+        <div class="tableview">
+            <table class="data fullwidth">
+                <thead>
+                    <tr>
+                        <th>{{ "Agent"|t('sanka') }}</th>
+                        <th>{{ "What it is for"|t('sanka') }}</th>
+                        <th>{{ "Hits"|t('sanka') }}</th>
+                        <th>{{ "Verified"|t('sanka') }}</th>
+                        <th>{{ "Forged"|t('sanka') }}</th>
+                        <th>{{ "Last seen"|t('sanka') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in summary %}
+                        <tr>
+                            <td>
+                                <a href="{{ url('sanka/crawlers/log', { agent: row.agent }) }}"><strong>{{ row.label }}</strong></a>
+                                <div class="light smalltext">{{ row.vendor }}</div>
+                            </td>
+                            <td class="light">{{ row.purpose }}</td>
+                            <td>{{ row.hits }}</td>
+                            <td>{{ row.verified ?: '—' }}</td>
+                            <td>{% if row.spoofed %}<span class="error">{{ row.spoofed }}</span>{% else %}—{% endif %}</td>
+                            <td class="light">{{ row.lastSeen ?? '—' }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <h2>{{ "What they read"|t('sanka') }}</h2>
+        <div class="tableview">
+            <table class="data fullwidth">
+                <thead>
+                    <tr>
+                        <th>{{ "URL"|t('sanka') }}</th>
+                        <th>{{ "Hits"|t('sanka') }}</th>
+                        <th>{{ "Distinct agents"|t('sanka') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for page in topPages %}
+                        <tr>
+                            <td><code>{{ page.url }}</code></td>
+                            <td>{{ page.hits }}</td>
+                            <td>{{ page.agents }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <h2>{{ agent ? "Recent visits from {agent}"|t('sanka', { agent: agent }) : "Recent visits"|t('sanka') }}</h2>
+        <div class="tableview">
+            <table class="data fullwidth">
+                <thead>
+                    <tr>
+                        <th>{{ "When"|t('sanka') }}</th>
+                        <th>{{ "Agent"|t('sanka') }}</th>
+                        <th>{{ "URL"|t('sanka') }}</th>
+                        <th>{{ "Status"|t('sanka') }}</th>
+                        <th>{{ "Genuine"|t('sanka') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr>
+                            <td class="light">{{ row.dateCreated }}</td>
+                            <td>{{ row.agent }}</td>
+                            <td><code>{{ row.url }}</code></td>
+                            <td class="light">{{ row.statusCode ?? '—' }}</td>
+                            <td>
+                                {% if row.verified is same as(null) %}
+                                    <span class="light">{{ "unchecked"|t('sanka') }}</span>
+                                {% elseif row.verified %}
+                                    <span class="status green"></span>{{ "yes"|t('sanka') }}
+                                {% else %}
+                                    <span class="status red"></span>{{ "forged"|t('sanka') }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+{% endblock %}

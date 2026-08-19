@@ -1,0 +1,171 @@
+{% extends "_layouts/cp" %}
+{% import "_includes/forms" as forms %}
+
+{% set title = "Sanka"|t('sanka') %}
+{% set selectedSubnavItem = 'overview' %}
+
+{% block content %}
+    {% if settings.dryRun %}
+        <blockquote class="note warning">
+            <p>
+                <strong>{{ "Dry run is on."|t('sanka') }}</strong>
+                {{ "Submissions are being recorded but nothing is leaving the server. Turn it off in settings when the log below looks right."|t('sanka') }}
+            </p>
+        </blockquote>
+    {% endif %}
+
+    <h2>{{ "Engines"|t('sanka') }}</h2>
+
+    <div class="tableview">
+        <table class="data fullwidth">
+            <thead>
+                <tr>
+                    <th>{{ "Engine"|t('sanka') }}</th>
+                    <th>{{ "State"|t('sanka') }}</th>
+                    <th>{{ "Waiting"|t('sanka') }}</th>
+                    <th>{{ "Quota today"|t('sanka') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for engine in engines %}
+                    <tr>
+                        <td>
+                            <strong>{{ engine.label }}</strong>
+                            <div class="light smalltext">{{ engine.description }}</div>
+                            {% for problem in engine.problems %}
+                                <div class="error smalltext">{{ problem }}</div>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% if not engine.enabled %}
+                                <span class="status"></span>{{ "off"|t('sanka') }}
+                            {% elseif not engine.configured %}
+                                <span class="status red"></span>{{ "not configured"|t('sanka') }}
+                            {% elseif engine.dryRun %}
+                                <span class="status orange"></span>{{ "dry run"|t('sanka') }}
+                            {% else %}
+                                <span class="status green"></span>{{ "ready"|t('sanka') }}
+                            {% endif %}
+                        </td>
+                        <td>{{ engine.pending }}</td>
+                        <td>
+                            {% if engine.quota is null %}
+                                <span class="light">{{ "no daily limit"|t('sanka') }}</span>
+                            {% else %}
+                                {{ engine.quotaUsed }} / {{ engine.quota }}
+                                <div class="light smalltext">{{ "resets {date}"|t('sanka', { date: engine.quotaDate }) }}</div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <p>
+        <button type="button" class="btn" id="sanka-drain">{{ "Send what is waiting"|t('sanka') }}</button>
+        <span class="light">{{ "{pending} submissions in the queue."|t('sanka', { pending: queued }) }}</span>
+    </p>
+
+    <hr>
+
+    <h2>{{ "Last 30 days"|t('sanka') }}</h2>
+
+    <ul class="sanka-counts">
+        <li><strong>{{ summary.sent }}</strong> {{ "sent"|t('sanka') }}</li>
+        <li><strong>{{ summary.skipped }}</strong> {{ "skipped"|t('sanka') }}</li>
+        <li><strong>{{ summary.failed }}</strong> {{ "failed"|t('sanka') }}</li>
+        <li><strong>{{ summary.pending }}</strong> {{ "waiting"|t('sanka') }}</li>
+    </ul>
+
+    {% if rules is empty %}
+        <blockquote class="note">
+            <p>{{ "No auto-submit rules, so saving an entry submits nothing. That is the default — Sanka never starts spending quota on its own."|t('sanka') }}
+               <a href="{{ url('settings/plugins/sanka') }}">{{ "Add a rule"|t('sanka') }}</a>.</p>
+        </blockquote>
+    {% endif %}
+
+    <h2>{{ "Latest submissions"|t('sanka') }}</h2>
+
+    {% if latest is empty %}
+        <p class="light">{{ "Nothing yet."|t('sanka') }}</p>
+    {% else %}
+        <div class="tableview">
+            <table class="data fullwidth">
+                <thead>
+                    <tr>
+                        <th>{{ "URL"|t('sanka') }}</th>
+                        <th>{{ "Engine"|t('sanka') }}</th>
+                        <th>{{ "Status"|t('sanka') }}</th>
+                        <th>{{ "When"|t('sanka') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in latest %}
+                        <tr>
+                            <td><a href="{{ url('sanka/log/' ~ row.id) }}"><code>{{ row.url }}</code></a></td>
+                            <td>{{ row.engine }}</td>
+                            <td>{% include 'sanka/_components/status-badge' with { status: row.status } only %}</td>
+                            <td class="light">{{ row.dateCreated }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p><a class="go" href="{{ url('sanka/log') }}">{{ "All submissions"|t('sanka') }}</a></p>
+    {% endif %}
+
+    {% if geoAllowed and crawlerSummary %}
+        <hr>
+        <h2>{{ "AI crawlers, last 30 days"|t('sanka') }}</h2>
+        <div class="tableview">
+            <table class="data fullwidth">
+                <thead>
+                    <tr>
+                        <th>{{ "Agent"|t('sanka') }}</th>
+                        <th>{{ "What it is for"|t('sanka') }}</th>
+                        <th>{{ "Hits"|t('sanka') }}</th>
+                        <th>{{ "Last seen"|t('sanka') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in crawlerSummary|slice(0, 8) %}
+                        <tr>
+                            <td><strong>{{ row.label }}</strong> <span class="light">{{ row.vendor }}</span></td>
+                            <td class="light">{{ row.purpose }}</td>
+                            <td>{{ row.hits }}</td>
+                            <td class="light">{{ row.lastSeen ?? '—' }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p><a class="go" href="{{ url('sanka/crawlers/log') }}">{{ "The whole crawler log"|t('sanka') }}</a></p>
+    {% endif %}
+{% endblock %}
+
+{% css %}
+.sanka-counts { display: flex; gap: 2rem; list-style: none; margin: 0 0 1.5rem; padding: 0; }
+.sanka-counts strong { display: block; font-size: 1.6rem; line-height: 1.2; }
+{% endcss %}
+
+{% js %}
+document.getElementById('sanka-drain')?.addEventListener('click', function(e) {
+    var button = e.currentTarget;
+    button.classList.add('loading');
+
+    // Posted with sendActionRequest rather than a form: this screen is inside the control panel’s
+    // own page form, and a nested form would corrupt it.
+    Craft.sendActionRequest('POST', 'sanka/overview/drain')
+        .then(function(response) {
+            Craft.cp.displayNotice(Craft.t('sanka', 'Queue drained.'));
+            window.location.reload();
+        })
+        .catch(function(error) {
+            Craft.cp.displayError(error?.response?.data?.message || Craft.t('sanka', 'Could not drain the queue.'));
+        })
+        .finally(function() {
+            button.classList.remove('loading');
+        });
+});
+{% endjs %}
