@@ -1,6 +1,6 @@
 # Changelog
 
-## 5.0.0 — 2026-08-19
+## 5.0.0 — 2026-08-23
 
 Initial release. Numbered 5.x to match the Craft version it targets, as the rest of the family is.
 
