@@ -5,8 +5,14 @@
 Sanka does two jobs that share one machine: **instant indexing** (Google Indexing API, IndexNow,
 sitemap resubmission) and **GEO** (llms.txt, AI crawler policy, crawler visit log, readiness audit).
 
-Distributed as `justinholtweb/craft-sanka`. **Lite/Pro paid**, like `[[project_craft_caffeine]]` and
-`[[project_craft_heat]]`.
+Distributed as `justinholtweb/craft-sanka`. **Lite/Pro paid — Pro is $129 with a $99/year
+renewal**, like `[[project_craft_caffeine]]` and `[[project_craft_heat]]`.
+
+Pricing appears in more places than you expect: this file, `README.md`'s editions table,
+`docs/installation.md`, `docs/faq.md`, the promo cover badge in `promos/slides.html`, the marketing
+page seed at `justinholt/scripts/seed/plugin-pages/craft-sanka.json` — and the Craft Console
+listing, where the *actual* prices live and which is the one that can silently disagree with
+everything else.
 
 Reference point for the indexing half: the WordPress plugin *Instant Indexing for Google*
 (`fast-indexing-api`). The GEO half has no WordPress equivalent worth copying.

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="#ffffff">
+  <!--
+    The bolt only. The full app icon's jar frame is ~70px of solid bar at watermark
+    scale and reads as a hard-edged grey box across the slide, so the frame is
+    stripped rather than the whole mark being faded further.
+  -->
+  <path d="M58 6 L26 56 h18 L36 94 L74 42 H55 Z"/>
+</svg>

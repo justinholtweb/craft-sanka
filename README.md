@@ -192,6 +192,7 @@ and dropping a cookie banner a machine cannot dismiss, are fine.
 
 | | Lite | Pro |
 |---|---|---|
+| **Price** | **Free** | **$129**, $99/year renewal |
 | Google Indexing API | ● | ● |
 | IndexNow | ● | ● |
 | Submit console, submit on save, the ledger, quota, retries | ● | ● |
@@ -202,6 +203,8 @@ and dropping a cookie banner a machine cannot dismiss, are fine.
 | AI crawler visit log and verification | | ● |
 | GEO readiness audit | | ● |
 | Scheduled sweeps, bulk submit, CSV export | | ● |
+
+Lite is not a trial — it does the whole indexing job, for nothing, forever.
 
 Lite **refuses** to save a configuration it cannot run, so you are told rather than quietly given
 something else. It **downgrades** on read, so a lapsed Pro licence keeps indexing with the Lite
