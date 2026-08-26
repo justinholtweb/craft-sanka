@@ -5,7 +5,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-SLIDES=${1:-"1 2 3 4 5 6 7"}
+SLIDES=${1:-"1 2 3 4 5 6 7 8"}
 
 # Inline the self-hosted fonts so Chrome's file:// origin rules can't block them.
 {
