@@ -143,6 +143,19 @@ token endpoint *and* synthesises a correct `multipart/mixed` batch response from
 actually contained — a batch response that did not answer the URLs sent would make the dispatcher's
 checks pass for the wrong reason.
 
+## Icons
+
+Three files, and they are not interchangeable:
+
+- **`src/icon.svg`** — the colour app tile (brass `#D9A441`, white mark), 100 viewBox. This is what
+  Craft shows in the plugin listing and what the family ships; every other `craft-*` plugin does the
+  same. The mark is placed with a `<g transform>` rather than a nested `<svg>`, because Craft
+  sanitises the file before inlining it and a stripped inner `<svg>` leaves nothing but a brass
+  square. Verified: the rect, the transform, both paths and `fill-rule="evenodd"` all survive.
+- **`src/icon-mask.svg`** — the monochrome silhouette Craft masks for the CP nav. No tile, no colour.
+- **`promos/assets/icon.svg`** and the marketing site's `web/images/plugins/sanka.svg` are
+  byte-identical copies of `src/icon.svg`. Changing the icon means updating all three.
+
 ## Coding conventions
 
 - `Craft::t('sanka', '…')` for user-facing strings; `src/translations/en/sanka.php` lists them

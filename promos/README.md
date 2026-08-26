@@ -40,9 +40,12 @@ are the plugin site's: accent `#D9A441`, Jersey 20 for display, Inter for body.
 
 `assets/` holds the fonts and two icon files:
 
-- `icon.svg` — the app tile: a rounded brass square with the plugin's own mark nested inside at its
-  native 24 viewBox. **Not** the same file as `../src/icon.svg`, which is a bare `currentColor`
-  glyph for the control panel and renders as a near-black smudge on these slides.
+- `icon.svg` — the app tile: a rounded brass square with the plugin's own mark placed by a group
+  transform. It is a **byte-identical copy** of `../src/icon.svg` and of the marketing site's
+  `web/images/plugins/sanka.svg`; keep all three in step. The mark is positioned with
+  `<g transform>` rather than a nested `<svg>` because Craft sanitises plugin icons before inlining
+  them in the control panel, and a stripped inner `<svg>` would leave a plain brass square.
+  The monochrome silhouette for the CP nav is a separate file, `../src/icon-mask.svg`.
 - `watermark.svg` — the bolt only, jar frame stripped, parked in the bottom-right corner at 3.5%.
   The full mark at watermark scale reads as a hard-edged box; a bolt large enough to fill the frame
   reads as a wedge slicing through the headline. Both were tried. The corner is where it belongs.
