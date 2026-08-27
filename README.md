@@ -245,6 +245,6 @@ interpretation — is covered without a single outbound request.
 
 ---
 
-## Licence
+## License
 
-Proprietary. See `LICENSE.md`.
+This plugin is released under the [Craft License](https://craftcms.github.io/license/).
