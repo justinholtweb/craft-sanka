@@ -111,5 +111,17 @@ because the protocol requires it, and `llms.txt` and `robots.txt` are generated 
 
 ## Does it work with SEOmatic, or my own sitemap?
 
-Yes. Sanka does not generate sitemaps — it submits whichever URLs you point it at, defaulting to
-each site's `/sitemap.xml`. Whatever produces that file is up to you.
+Yes. Sanka does not generate sitemaps — it submits whichever URLs you point it at.
+
+Leave the sitemap table empty and it asks SEOmatic where its sitemap index actually is, per site.
+That matters: SEOmatic's index lives at `/sitemaps-<groupId>-sitemap.xml` and `/sitemap.xml` only
+*redirects* to it, so the obvious guess asks every IndexNow engine to follow a hop it did not need
+to and records a URL in the ledger that is not the one being read. The settings screen names where
+the list came from.
+
+With no SEO plugin to ask, Sanka falls back to each site's `/sitemap.xml`. Anything you type into
+the table wins over both.
+
+If SEOmatic also generates your `robots.txt`, ask `craft.sanka.robots()` for only the AI crawler
+policy rather than pasting the whole file underneath — see
+[the Twig section](usage.md#only-the-parts-you-need-from-robots).

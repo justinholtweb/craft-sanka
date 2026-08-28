@@ -78,7 +78,8 @@ bots" is advice that destroys traffic when followed literally:
 | **Model training** | `GPTBot`, `Google-Extended`, `Applebot-Extended`, `CCBot`, `Bytespider`, `meta-externalagent`, and more — blocking these costs no visibility. This is the group most people actually mean. |
 
 Output is `robots.txt`, which Sanka will serve for you or hand to your own template as
-`craft.sanka.robots()`.
+`craft.sanka.robots()` — with any part you already generate elsewhere left out, so a site running
+SEOmatic can take the crawler policy and nothing else.
 
 ### Tells you who actually came *(Pro)*
 
@@ -174,6 +175,8 @@ sites whose queue runner is not guaranteed.
 
 ```twig
 {{ craft.sanka.robots() }}            {# the crawler policy, for your own robots.twig #}
+{{ craft.sanka.robots({ default: false, sitemaps: false, cp: false, header: false }) }}
+                                      {# just the AI crawler groups, for an SEOmatic robots.txt #}
 {{ craft.sanka.llms() }}              {# llms.txt, if you would rather render it yourself #}
 {{ craft.sanka.llms(null, true) }}    {# llms-full.txt #}
 {{ craft.sanka.indexNowKeyUrl() }}

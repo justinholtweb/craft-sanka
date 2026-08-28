@@ -179,6 +179,9 @@ class Plugin extends BasePlugin
             'isPro' => $this->isPro(),
             'editionProblems' => Edition::problems($this->getSettings(), $this->isPro()),
             'staticRobots' => $this->crawlers->staticRobotsPath(),
+            'cpDisallows' => $this->crawlers->cpDisallows(),
+            'detectedSitemaps' => $this->engines->getSitemap()->sitemapUrls(),
+            'sitemapSource' => $this->engines->getSitemap()->sitemapSource(),
             'sections' => Craft::$app->getEntries()->getAllSections(),
             'sites' => Craft::$app->getSites()->getAllSites(),
         ]);

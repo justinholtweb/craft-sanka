@@ -119,6 +119,19 @@ of breaking, and upgrading restores exactly what was configured).
 - **Craft's `Response::FORMAT_RAW` plus an explicit `Content-Type`** is what makes `/llms.txt` and
   the IndexNow key file come back as `text/plain` — a `.txt` route inside Craft otherwise inherits
   the site default, and IndexNow's engines are strict about it.
+- **Craft's editable table posts `name[rowId][column]`, not a flat list.** A setting typed
+  `array<string>` and fed straight from the post ends up holding a row array per entry — which
+  validation skips as “not a string”, the service quietly ignores for the same reason, and Craft's
+  own table template then renders with `{{ value }}`: *Array to string conversion*, fatal, on a
+  settings screen there is now no way back into. `Settings::setAttributes()` normalises both
+  `autoSubmitRules` and `sitemapUrls` for this reason, and the checks render the real settings
+  screen rather than only asserting on the model.
+- **`Disallow` in robots.txt takes a path, not a URL.** `UrlHelper::cpUrl('')` returns an absolute
+  URL, and a crawler compares a `Disallow` value against the request path literally — so
+  `Disallow: https://example.com/admin` never matches anything while still publishing the path.
+- **Another plugin's internals are not a contract.** `SitemapEngine` reaches SEOmatic through a
+  guarded resolver keyed by plugin handle: `method_exists` first, `Throwable` caught, and a failure
+  means “fall back to the guess”, never an exception on a settings screen.
 - **Google's batch responses are not ordered.** Parts are matched by `Content-ID` (returned prefixed
   with `response-`), never by position, and a part that is missing entirely is retried rather than
   assumed sent.
@@ -130,7 +143,7 @@ See also `[[craft-plugin-gotchas]]` in the shared memory for family-wide traps.
 No local PHP on this Mac. Everything runs inside the plugin-testing container:
 
 ```sh
-docker exec -w /var/www/html ddev-plugin-testing-web php /var/www/craft-sanka/tests/integration/checks.php   # 162 checks
+docker exec -w /var/www/html ddev-plugin-testing-web php /var/www/craft-sanka/tests/integration/checks.php   # 181 checks
 docker exec ddev-plugin-testing-web bash -c 'find /var/www/craft-sanka/src -name "*.php" -print0 | xargs -0 -n1 php -l'
 ```
 

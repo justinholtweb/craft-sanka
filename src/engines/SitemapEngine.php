@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace justinholtweb\sanka\engines;
 
 use Craft;
+use craft\base\PluginInterface;
 use craft\helpers\UrlHelper;
 use justinholtweb\sanka\http\HttpClientInterface;
 use justinholtweb\sanka\models\Settings;
 use justinholtweb\sanka\models\SubmissionResult;
+use Throwable;
 
 /**
  * Sitemap resubmission.
@@ -30,6 +32,18 @@ use justinholtweb\sanka\models\SubmissionResult;
 class SitemapEngine extends BaseEngine
 {
     public const HANDLE = 'sitemap';
+
+    /**
+     * SEO plugins that can be asked where their sitemap index really is.
+     *
+     * Keyed by plugin handle, so a site without the plugin never loads its classes. The resolver is
+     * called once per site and may return null or throw; either means “ask something else”.
+     *
+     * @var array<string, callable(PluginInterface, int): ?string>
+     */
+    private const SITEMAP_PLUGINS = [
+        'seomatic' => [self::class, 'seomaticSitemapUrl'],
+    ];
 
     public function __construct(
         Settings $settings,
@@ -108,12 +122,35 @@ class SitemapEngine extends BaseEngine
     }
 
     /**
+     * SEOmatic's sitemap index for one site.
+     *
+     * Reached through the service rather than the `seomatic.helper` Twig variable so that no
+     * template needs rendering, and guarded by `method_exists` because this is another plugin's
+     * internals and it is allowed to move them.
+     */
+    private static function seomaticSitemapUrl(PluginInterface $plugin, int $siteId): ?string
+    {
+        $sitemaps = $plugin->sitemaps ?? null;
+
+        if ($sitemaps === null || !method_exists($sitemaps, 'sitemapIndexUrlForSiteId')) {
+            return null;
+        }
+
+        return $sitemaps->sitemapIndexUrlForSiteId($siteId) ?: null;
+    }
+
+    /**
      * The sitemaps Sanka will resubmit.
      *
-     * Configured URLs win. Failing that, each site's `/sitemap.xml` is offered — the convention
-     * every Craft SEO plugin follows — and it is checked for existence only when the operator asks,
-     * not here, because this method is called on the settings screen and a network probe per site
-     * on every render is not acceptable.
+     * Three sources, in order: what the operator configured, what an installed SEO plugin says its
+     * sitemap index actually is, and finally each site's `/sitemap.xml`. None of them is checked
+     * over the network here — this runs on the settings screen, and a probe per site on every
+     * render is not acceptable — so existence is confirmed only when the operator asks.
+     *
+     * Asking the SEO plugin matters because the guess is wrong on the most common setup there is.
+     * SEOmatic's index lives at `/sitemaps-<groupId>-sitemap.xml` and only *redirects* from
+     * `/sitemap.xml`; submitting the redirect asks every IndexNow engine to follow a hop it did not
+     * need to, and records a URL in the ledger that is not the one being read.
      *
      * @return list<string>
      */
@@ -131,6 +168,96 @@ class SitemapEngine extends BaseEngine
             return array_values(array_unique($configured));
         }
 
+        $detected = $this->detectedUrls();
+
+        return $detected !== [] ? $detected : $this->guessedUrls();
+    }
+
+    /**
+     * Where {@see self::sitemapUrls()} got its answer, for the screens that show the list.
+     *
+     * “Configured”, the name of the plugin that was asked, or null for the guess. A list nobody can
+     * account for is the one that gets quietly ignored when it turns out to be wrong.
+     */
+    public function sitemapSource(): ?string
+    {
+        foreach ($this->settings->sitemapUrls as $url) {
+            if (is_string($url) && trim($url) !== '') {
+                return Craft::t('sanka', 'Configured here');
+            }
+        }
+
+        foreach (self::SITEMAP_PLUGINS as $handle => $resolver) {
+            if ($this->pluginUrls($handle, $resolver) !== []) {
+                return Craft::$app->getPlugins()->getPlugin($handle)?->name ?? $handle;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The sitemap index an installed SEO plugin publishes, if one is installed and can say.
+     *
+     * @return list<string>
+     */
+    private function detectedUrls(): array
+    {
+        foreach (self::SITEMAP_PLUGINS as $handle => $resolver) {
+            $urls = $this->pluginUrls($handle, $resolver);
+
+            if ($urls !== []) {
+                return $urls;
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @param callable(PluginInterface, int): ?string $resolver
+     * @return list<string>
+     */
+    private function pluginUrls(string $handle, callable $resolver): array
+    {
+        $plugin = Craft::$app->getPlugins()->getPlugin($handle);
+
+        if ($plugin === null) {
+            return [];
+        }
+
+        $urls = [];
+
+        foreach (Craft::$app->getSites()->getAllSites() as $site) {
+            if (trim((string)$site->getBaseUrl()) === '') {
+                continue;
+            }
+
+            try {
+                // Another plugin's internals are not a contract. A version that moved the method,
+                // a licence that lapsed and disabled half of it, a sitemap feature switched off —
+                // all of those are “this plugin cannot tell us”, not a reason to take the request
+                // down, so the guess is used instead.
+                $url = $resolver($plugin, $site->id);
+            } catch (Throwable $e) {
+                Craft::warning("Could not read sitemap URLs from {$handle}: {$e->getMessage()}", __METHOD__);
+
+                return [];
+            }
+
+            if (is_string($url) && trim($url) !== '') {
+                $urls[] = trim($url);
+            }
+        }
+
+        return array_values(array_unique($urls));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function guessedUrls(): array
+    {
         $guessed = [];
 
         foreach (Craft::$app->getSites()->getAllSites() as $site) {

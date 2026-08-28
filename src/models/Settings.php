@@ -24,6 +24,15 @@ use ReflectionProperty;
  */
 class Settings extends Model
 {
+    /** Disallow the control panel only when its trigger is Craft's default. */
+    public const CP_AUTO = 'auto';
+
+    public const CP_ALWAYS = 'always';
+
+    public const CP_NEVER = 'never';
+
+    public const CP_MODES = [self::CP_AUTO, self::CP_ALWAYS, self::CP_NEVER];
+
     // ---------------------------------------------------------------- engines
 
     public bool $googleEnabled = false;
@@ -56,7 +65,14 @@ class Settings extends Model
     /** Pro. */
     public bool $sitemapEnabled = false;
 
-    /** Absolute sitemap URLs. Empty means “ask the installed SEO plugin”, then fall back to /sitemap.xml. */
+    /**
+     * Absolute sitemap URLs, as a flat list of strings.
+     *
+     * Empty means “ask the installed SEO plugin”, then fall back to each site's `/sitemap.xml`.
+     *
+     * The control panel posts this as editable-table rows — `[rowId => ['url' => '…']]` — and
+     * {@see self::setAttributes()} flattens it, for the same reason the rules are normalised there.
+     */
     public array $sitemapUrls = [];
 
     // ------------------------------------------------------------- submitting
@@ -128,6 +144,18 @@ class Settings extends Model
     /** Extra lines appended to the generated robots.txt verbatim. */
     public string $robotsExtra = '';
 
+    /**
+     * Whether the generated robots.txt disallows the control panel.
+     *
+     * `auto` emits the line only when `cpTrigger` is Craft's default. A default trigger is public
+     * knowledge and the line is conventional; a *customised* one was customised to keep the control
+     * panel out of sight, and robots.txt is the most-read file on the site — publishing the path
+     * there hands it to everybody who asks. Disallowing it buys nothing either way: the control
+     * panel requires a login, and a crawler that ignores robots.txt is exactly the one you were
+     * worried about.
+     */
+    public string $robotsDisallowCp = self::CP_AUTO;
+
     /** @var array<string, string> agent token => `allow` | `block` */
     public array $crawlerPolicy = [];
 
@@ -160,6 +188,7 @@ class Settings extends Model
             [['llmsCacheDuration'], 'integer', 'min' => 0, 'max' => 604800],
             [['auditTimeout'], 'integer', 'min' => 1, 'max' => 120],
             [['indexNowEndpoint'], 'in', 'range' => array_keys(IndexNowEngine::ENDPOINTS)],
+            [['robotsDisallowCp'], 'in', 'range' => self::CP_MODES],
             [['indexNowKey'], 'match', 'pattern' => '/^[A-Za-z0-9\-]{8,128}$/', 'skipOnEmpty' => true,
                 'message' => 'The IndexNow key must be 8–128 characters of letters, numbers and dashes.'],
             [['googleCredentials'], 'validateGoogleCredentials', 'skipOnEmpty' => true],
@@ -191,6 +220,16 @@ class Settings extends Model
         }
 
         parent::setAttributes($values, $safeOnly);
+
+        // Craft's editable table posts `name[rowId][column]`, so a table of sitemap URLs arrives as
+        // a list of one-key arrays rather than the list of strings this holds. Flattening here is
+        // what stops a saved row reaching the template as an array — which renders as “Array to
+        // string conversion” and takes the whole settings screen down — and what stops
+        // {@see \justinholtweb\sanka\engines\SitemapEngine::sitemapUrls()} quietly skipping every
+        // configured sitemap because none of them is a string.
+        if (array_key_exists('sitemapUrls', $values)) {
+            $this->sitemapUrls = self::flattenUrls($this->sitemapUrls);
+        }
 
         // Rules arrive from the control panel in a flat, one-column-per-checkbox shape. Normalising
         // here means everything downstream — validation, project config, the services — only ever
@@ -314,12 +353,21 @@ class Settings extends Model
     public function validateSitemapUrls(string $attribute): void
     {
         foreach ($this->sitemapUrls as $url) {
-            if (!is_string($url) || $url === '') {
+            // Anything that is not a string got past normalisation, which means it came from a
+            // hand-edited project config rather than the control panel. Saying so beats skipping it
+            // and letting the engine silently ignore the sitemap the operator asked for.
+            if (!is_string($url)) {
+                $this->addError($attribute, Craft::t('sanka', 'Sitemap URLs must be a plain list of absolute URLs.'));
+
+                continue;
+            }
+
+            if ($url === '') {
                 continue;
             }
 
             if (!preg_match('#^https?://#i', $url)) {
-                $this->addError($attribute, Craft::t('sanka', 'Sitemap URLs must be absolute: {url}', ['url' => (string)$url]));
+                $this->addError($attribute, Craft::t('sanka', 'Sitemap URLs must be absolute: {url}', ['url' => $url]));
             }
         }
     }
@@ -360,6 +408,39 @@ class Settings extends Model
     }
 
     // ----------------------------------------------------------------- private
+
+    /**
+     * A list of sitemap URLs, from either shape it arrives in.
+     *
+     * Accepts the flat list project config holds and the `[rowId => ['url' => '…']]` rows the
+     * control panel posts, and takes the single value out of a row whatever the column is called,
+     * so a row that reached project config under some other key is still recovered rather than
+     * thrown away.
+     *
+     * @return list<string>
+     */
+    private static function flattenUrls(array $values): array
+    {
+        $urls = [];
+
+        foreach ($values as $value) {
+            if (is_array($value)) {
+                $value = $value['url'] ?? (count($value) === 1 ? reset($value) : null);
+            }
+
+            if (!is_string($value)) {
+                continue;
+            }
+
+            $value = trim($value);
+
+            if ($value !== '') {
+                $urls[] = $value;
+            }
+        }
+
+        return array_values(array_unique($urls));
+    }
 
     private function coerce(string $name, mixed $value): mixed
     {

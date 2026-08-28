@@ -151,6 +151,62 @@ check('a posted array where an int is expected keeps the default', function() {
     return $s->maxAttempts === 4 ?: "maxAttempts became " . var_export($s->maxAttempts, true);
 });
 
+check('the sitemap table’s row shape is flattened into a list of URLs', function() {
+    $s = new Settings();
+    $s->setAttributes(['sitemapUrls' => [
+        'row1' => ['url' => ' https://example.com/sitemap.xml '],
+        'row2' => ['url' => ''],
+        'row3' => ['url' => 'https://example.com/sitemap.xml'],
+    ]], false);
+
+    return $s->sitemapUrls === ['https://example.com/sitemap.xml'] ?: json_encode($s->sitemapUrls);
+});
+
+check('a flat list of sitemap URLs is left alone', function() {
+    $s = new Settings();
+    $s->setAttributes(['sitemapUrls' => ['https://example.com/a.xml', 'https://example.com/b.xml']], false);
+
+    return $s->sitemapUrls === ['https://example.com/a.xml', 'https://example.com/b.xml'] ?: json_encode($s->sitemapUrls);
+});
+
+check('an empty sitemap table clears the list rather than fatalling', function() {
+    $s = new Settings();
+    $s->sitemapUrls = ['https://example.com/a.xml'];
+    // What Craft posts for a table nobody added a row to.
+    $s->setAttributes(['sitemapUrls' => ''], false);
+
+    return $s->sitemapUrls === ['https://example.com/a.xml'] ?: json_encode($s->sitemapUrls);
+});
+
+check('a relative sitemap URL posted from the table is still reported', function() {
+    $s = new Settings();
+    $s->setAttributes(['sitemapUrls' => ['row1' => ['url' => '/sitemap.xml']]], false);
+    $s->validate(['sitemapUrls']);
+
+    return $s->hasErrors('sitemapUrls') ?: 'a relative URL was accepted';
+});
+
+check('a sitemap value nothing can flatten is reported, not skipped', function() {
+    $s = new Settings();
+    $s->sitemapUrls = [['url' => 'https://example.com/a.xml', 'extra' => 'x']];
+    $s->validate(['sitemapUrls']);
+
+    return $s->hasErrors('sitemapUrls') ?: 'an array value validated as a URL';
+});
+
+check('every sitemap URL that reaches a template is a string', function() {
+    $s = new Settings();
+    $s->setAttributes(['sitemapUrls' => ['row1' => ['url' => 'https://example.com/a.xml']]], false);
+
+    foreach ($s->sitemapUrls as $url) {
+        if (!is_string($url)) {
+            return 'got ' . gettype($url);
+        }
+    }
+
+    return true;
+});
+
 check('numeric strings become ints', function() {
     $s = new Settings();
     $s->setAttributes(['retentionDays' => '45'], false);
@@ -248,6 +304,33 @@ check('the policy for an unconfigured agent defaults to allow', function() use (
 });
 
 // ------------------------------------------------------------------ edition
+
+check('the settings screen renders again after a save from the control panel', function() use ($plugin) {
+    // The regression this guards: the editable table posts `sitemapUrls[rowId][url]`, and a row
+    // stored in that shape reaches Craft's own table template as an array. It renders it with
+    // `{{ value }}`, which is “Array to string conversion” — a fatal on the settings screen, on
+    // every request, with no way back in through the control panel to undo the setting that caused
+    // it. Rendering the real screen is the only thing that would have caught it.
+    $settings = $plugin->getSettings();
+    $before = $settings->sitemapUrls;
+    $view = Craft::$app->getView();
+    $mode = $view->getTemplateMode();
+
+    try {
+        $settings->setAttributes(['sitemapUrls' => [
+            'row1' => ['url' => 'https://example.com/sanka-check-sitemap.xml'],
+        ]], false);
+
+        $view->setTemplateMode(craft\web\View::TEMPLATE_MODE_CP);
+        $html = (new \ReflectionMethod($plugin, 'settingsHtml'))->invoke($plugin);
+
+        return str_contains($html, 'https://example.com/sanka-check-sitemap.xml')
+            ?: 'the screen rendered without the configured sitemap';
+    } finally {
+        $settings->sitemapUrls = $before;
+        $view->setTemplateMode($mode);
+    }
+});
 
 section('Editions — the Lite/Pro boundary');
 
@@ -946,10 +1029,65 @@ check('a sitemap is never withdrawn, only resubmitted', function() use ($plugin,
     return $result->status === SubmissionRecord::STATUS_SKIPPED ?: $result->status;
 });
 
-check('sitemaps fall back to each site’s /sitemap.xml', function() use ($plugin) {
+check('sitemaps are discovered for every site with a base URL', function() use ($plugin) {
     $urls = $plugin->engines->getSitemap()->sitemapUrls();
 
+    if ($urls === []) {
+        return 'no sitemaps were offered at all';
+    }
+
+    foreach ($urls as $url) {
+        if (!is_string($url) || !str_starts_with($url, 'http')) {
+            return json_encode($urls);
+        }
+    }
+
+    return true;
+});
+
+check('an installed SEO plugin is asked where its sitemap index actually is', function() use ($plugin) {
+    $seomatic = Craft::$app->getPlugins()->getPlugin('seomatic');
+
+    // The guess — `/sitemap.xml` — is wrong on an SEOmatic site: the index lives at
+    // `/sitemaps-<groupId>-sitemap.xml` and `/sitemap.xml` only redirects to it.
+    if ($seomatic === null) {
+        return true;
+    }
+
+    $expected = [];
+
+    foreach (Craft::$app->getSites()->getAllSites() as $site) {
+        if (trim((string)$site->getBaseUrl()) === '') {
+            continue;
+        }
+
+        $expected[] = $seomatic->sitemaps->sitemapIndexUrlForSiteId($site->id);
+    }
+
+    return ($plugin->engines->getSitemap()->sitemapUrls() === array_values(array_unique($expected))
+        && $plugin->engines->getSitemap()->sitemapSource() === 'SEOmatic')
+        ?: json_encode([$plugin->engines->getSitemap()->sitemapUrls(), $plugin->engines->getSitemap()->sitemapSource()]);
+});
+
+check('the guess is used when nothing can be detected', function() use ($plugin) {
+    $engine = $plugin->engines->getSitemap();
+    $method = new \ReflectionMethod($engine, 'guessedUrls');
+    $urls = $method->invoke($engine);
+
     return ($urls !== [] && str_ends_with($urls[0], '/sitemap.xml')) ?: json_encode($urls);
+});
+
+check('configured URLs beat anything an SEO plugin says', function() use ($plugin) {
+    $settings = $plugin->getSettings();
+    $settings->sitemapUrls = ['https://example.com/mine.xml'];
+
+    try {
+        return ($plugin->engines->getSitemap()->sitemapUrls() === ['https://example.com/mine.xml']
+            && $plugin->engines->getSitemap()->sitemapSource() === 'Configured here')
+            ?: json_encode([$plugin->engines->getSitemap()->sitemapUrls(), $plugin->engines->getSitemap()->sitemapSource()]);
+    } finally {
+        $settings->sitemapUrls = [];
+    }
 });
 
 check('configured sitemap URLs win over the guess', function() use ($plugin) {
@@ -1293,6 +1431,103 @@ check('robots.txt always ends with a permissive default and the sitemaps', funct
 
 check('robots.txt keeps the control panel out of the index', function() use ($plugin) {
     return str_contains($plugin->crawlers->robotsTxt(), '/cpresources/') ?: 'cpresources was not excluded';
+});
+
+check('the control panel is disallowed by path, never by absolute URL', function() use ($plugin) {
+    // `Disallow` takes a path. A crawler handed `https://example.com/admin` compares it to the
+    // request path literally and therefore never matches — so the line that was meant to hide the
+    // control panel published it and hid nothing.
+    foreach ($plugin->crawlers->cpDisallows() as $path) {
+        if (!str_starts_with($path, '/')) {
+            return "got {$path}";
+        }
+    }
+
+    return !str_contains($plugin->crawlers->robotsTxt(), 'Disallow: http') ?: 'an absolute URL was written';
+});
+
+check('a customised cpTrigger is not published', function() use ($plugin) {
+    $general = Craft::$app->getConfig()->getGeneral();
+    $settings = $plugin->getSettings();
+    $trigger = $general->cpTrigger;
+    $mode = $settings->robotsDisallowCp;
+
+    try {
+        $general->cpTrigger = 'sanka-check-door';
+        $settings->robotsDisallowCp = Settings::CP_AUTO;
+
+        return !str_contains($plugin->crawlers->robotsTxt(), 'sanka-check-door')
+            ?: 'the customised trigger was written into robots.txt';
+    } finally {
+        $general->cpTrigger = $trigger;
+        $settings->robotsDisallowCp = $mode;
+    }
+});
+
+check('the default trigger is still disallowed, by convention', function() use ($plugin) {
+    $general = Craft::$app->getConfig()->getGeneral();
+    $settings = $plugin->getSettings();
+    $trigger = $general->cpTrigger;
+    $mode = $settings->robotsDisallowCp;
+
+    try {
+        $general->cpTrigger = 'admin';
+        $settings->robotsDisallowCp = Settings::CP_AUTO;
+
+        return in_array('/admin', $plugin->crawlers->cpDisallows(), true)
+            ?: json_encode($plugin->crawlers->cpDisallows());
+    } finally {
+        $general->cpTrigger = $trigger;
+        $settings->robotsDisallowCp = $mode;
+    }
+});
+
+check('“always” publishes a customised trigger and “never” publishes nothing', function() use ($plugin) {
+    $general = Craft::$app->getConfig()->getGeneral();
+    $settings = $plugin->getSettings();
+    $trigger = $general->cpTrigger;
+    $mode = $settings->robotsDisallowCp;
+
+    try {
+        $general->cpTrigger = 'sanka-check-door';
+
+        $settings->robotsDisallowCp = Settings::CP_ALWAYS;
+        $always = $plugin->crawlers->cpDisallows();
+
+        $settings->robotsDisallowCp = Settings::CP_NEVER;
+        $never = $plugin->crawlers->cpDisallows();
+
+        return (in_array('/sanka-check-door', $always, true) && $never === [])
+            ?: json_encode([$always, $never]);
+    } finally {
+        $general->cpTrigger = $trigger;
+        $settings->robotsDisallowCp = $mode;
+    }
+});
+
+check('a headless install has no trigger to disallow', function() use ($plugin) {
+    $general = Craft::$app->getConfig()->getGeneral();
+    $settings = $plugin->getSettings();
+    $trigger = $general->cpTrigger;
+    $mode = $settings->robotsDisallowCp;
+
+    try {
+        $general->cpTrigger = null;
+        $settings->robotsDisallowCp = Settings::CP_ALWAYS;
+
+        return $plugin->crawlers->cpDisallows() === ['/cpresources/']
+            ?: json_encode($plugin->crawlers->cpDisallows());
+    } finally {
+        $general->cpTrigger = $trigger;
+        $settings->robotsDisallowCp = $mode;
+    }
+});
+
+check('an unknown robotsDisallowCp value is rejected on save', function() {
+    $s = new Settings();
+    $s->robotsDisallowCp = 'sometimes';
+
+    return !$s->validate(['robotsDisallowCp']) ?: 'an unknown mode was accepted';
 });
 
 check('extra lines are appended verbatim', function() use ($plugin) {
@@ -1785,6 +2020,51 @@ check('llms.txt is served as text/plain and opens with the site name', function(
 // ------------------------------------------------------------------- twig
 
 section('Twig');
+
+check('craft.sanka.robots() can leave out the parts another plugin already writes', function() use ($plugin) {
+    $variable = new justinholtweb\sanka\twig\SankaVariable();
+    $settings = $plugin->getSettings();
+    $policy = $settings->crawlerPolicy;
+    $settings->crawlerPolicy = ['GPTBot' => CrawlerAgent::POLICY_BLOCK];
+
+    try {
+        $body = (string)$variable->robots([
+            'header' => false,
+            'default' => false,
+            'cp' => false,
+            'sitemaps' => false,
+            'llms' => false,
+            'extra' => false,
+        ]);
+
+        return (str_starts_with($body, "# OpenAI")
+            && str_contains($body, 'User-agent: GPTBot')
+            && !str_contains($body, 'User-agent: *')
+            && !str_contains($body, 'Sitemap:')
+            && !str_contains($body, 'Disallow: /cpresources/'))
+            ?: json_encode($body);
+    } finally {
+        $settings->crawlerPolicy = $policy;
+    }
+});
+
+check('craft.sanka.robots() still takes a bare site ID', function() use ($site) {
+    $variable = new justinholtweb\sanka\twig\SankaVariable();
+
+    return str_contains((string)$variable->robots($site->id), 'User-agent: *') ?: 'no robots body';
+});
+
+check('craft.sanka.robots() refuses a section nobody has heard of', function() {
+    $variable = new justinholtweb\sanka\twig\SankaVariable();
+
+    try {
+        $variable->robots(['sitemap' => false]);
+    } catch (Throwable $e) {
+        return str_contains($e->getMessage(), 'Unknown robots.txt section') ?: $e->getMessage();
+    }
+
+    return 'a misspelt section was accepted, so it would have stayed on';
+});
 
 check('craft.sanka.robots() returns rendered markup', function() {
     $variable = new justinholtweb\sanka\twig\SankaVariable();

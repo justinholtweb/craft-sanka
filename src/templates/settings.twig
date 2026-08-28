@@ -250,7 +250,7 @@
 
 {{ forms.editableTableField({
     label: "Sitemap URLs"|t('sanka'),
-    instructions: "Leave empty to use each site’s `/sitemap.xml`."|t('sanka'),
+    instructions: "Leave empty and Sanka asks the installed SEO plugin where its sitemap index is, falling back to each site’s `/sitemap.xml`."|t('sanka'),
     id: 'sitemapUrls',
     name: 'sitemapUrls',
     cols: {
@@ -263,6 +263,21 @@
     allowReorder: true,
     errors: settings.getErrors('sitemapUrls'),
 }) }}
+
+{% if settings.sitemapUrls is empty and detectedSitemaps %}
+    <div class="readable">
+        <p class="light">
+            {% if sitemapSource %}
+                {{ "Found by asking {source}. Sanka will resubmit these:"|t('sanka', { source: sitemapSource }) }}
+            {% else %}
+                {{ "No SEO plugin could say, so Sanka will resubmit these:"|t('sanka') }}
+            {% endif %}
+        </p>
+        <ul>
+            {% for sitemap in detectedSitemaps %}<li><code>{{ sitemap }}</code></li>{% endfor %}
+        </ul>
+    </div>
+{% endif %}
 
 <hr>
 
@@ -341,6 +356,29 @@
         <p>{{ "A static file exists at {path} and is served before anything Craft routes, so the setting above would appear to work and do nothing. Delete that file to let Sanka serve robots.txt."|t('sanka', { path: staticRobots }) }}</p>
     </blockquote>
 {% endif %}
+
+{{ forms.selectField({
+    label: "Disallow the control panel"|t('sanka'),
+    instructions: "Whether the generated robots.txt names the control panel. It was never protection — the control panel needs a login — and on a customised `cpTrigger` the line publishes the path in the most-read file on the site. **Automatic** keeps the convention on the default `admin` trigger and drops it on a customised one. `/cpresources/` is listed either way; it leaks nothing."|t('sanka'),
+    id: 'robotsDisallowCp',
+    name: 'robotsDisallowCp',
+    options: [
+        { label: "Automatic — only on the default trigger"|t('sanka'), value: 'auto' },
+        { label: "Always"|t('sanka'), value: 'always' },
+        { label: "Never"|t('sanka'), value: 'never' },
+    ],
+    value: settings.robotsDisallowCp,
+    errors: settings.getErrors('robotsDisallowCp'),
+}) }}
+
+<div class="readable">
+    <p class="light">{{ "The control panel lines Sanka would write:"|t('sanka') }}</p>
+    {% if cpDisallows %}
+        <ul>{% for path in cpDisallows %}<li><code>Disallow: {{ path }}</code></li>{% endfor %}</ul>
+    {% else %}
+        <p class="light"><em>{{ "None."|t('sanka') }}</em></p>
+    {% endif %}
+</div>
 
 {{ forms.textareaField({
     label: "Extra robots.txt lines"|t('sanka'),

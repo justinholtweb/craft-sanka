@@ -67,7 +67,9 @@ effect on Google Search or on Siri. They will never appear in the visit log, bec
 fetches anything under those names.
 
 The output is `robots.txt`, one group per agent. Sanka will serve it, or hand it to your own
-template as `craft.sanka.robots()`.
+template as `craft.sanka.robots()` — which can leave out whatever your existing `robots.txt` already
+says, so a site running SEOmatic can take the crawler policy and nothing else. See
+[the Twig section](usage.md#only-the-parts-you-need-from-robots).
 
 ## The visit log
 

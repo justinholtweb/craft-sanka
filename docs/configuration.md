@@ -101,6 +101,7 @@ will notice.
 | Sections to include | all with URLs | Which sections appear, in your order |
 | Cache the generated files for | 3600s | A ceiling; saving an entry clears the cache anyway |
 | Serve `/robots.txt` | off | Lets Sanka generate robots.txt from the crawler policy |
+| Disallow the control panel | Automatic | Whether robots.txt names the control panel — see below |
 | Extra robots.txt lines | — | Appended verbatim, after the policy and before the sitemaps |
 | Log AI crawler visits | off | Records every request from a recognised AI agent |
 | Keep crawler visits for | 30 days | Retention |
@@ -108,6 +109,27 @@ will notice.
 If a static `robots.txt` exists in your web root, it is served before anything Craft routes. Sanka
 detects it and says so on the settings screen rather than letting the switch appear to work and do
 nothing.
+
+### Disallowing the control panel
+
+Craft robots.txt files conventionally disallow the control panel. On the default `admin` trigger
+that costs nothing — everybody already knows where a Craft control panel is. On a **customised**
+`cpTrigger` it costs something real: the trigger was customised to keep the control panel out of
+sight, and robots.txt is the most reliably fetched file on the site.
+
+Disallowing it was never protection either way. The control panel needs a login, and a crawler that
+ignores robots.txt is exactly the one you were worried about.
+
+| Mode | What is written |
+|---|---|
+| **Automatic** (default) | The trigger, only when it is Craft's default `admin` |
+| Always | The trigger, whatever it is |
+| Never | Neither line |
+
+`Disallow: /cpresources/` is written under Automatic and Always regardless of the trigger — it is
+public, cacheable and the same on nearly every install, so it leaks nothing.
+
+The settings screen shows exactly which lines your configuration produces.
 
 ## Permissions
 
