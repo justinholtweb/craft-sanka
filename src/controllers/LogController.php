@@ -6,7 +6,6 @@ namespace justinholtweb\sanka\controllers;
 
 use Craft;
 use craft\db\Query;
-use craft\helpers\Db;
 use craft\web\Controller;
 use DateTime;
 use justinholtweb\sanka\models\Edition;

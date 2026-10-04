@@ -1,7 +1,7 @@
 {
     "name": "justinholtweb/craft-sanka",
     "description": "Instant indexing and GEO for Craft CMS — push URLs to Google's Indexing API and IndexNow the moment they change, then manage, log and audit how AI search engines read your site.",
-    "version": "5.0.1",
+    "version": "5.0.2",
     "type": "craft-plugin",
     "keywords": [
         "craftcms",
@@ -60,5 +60,10 @@
         "documentationUrl": "https://github.com/justinholtweb/craft-sanka/blob/main/README.md",
         "changelogUrl": "https://raw.githubusercontent.com/justinholtweb/craft-sanka/main/CHANGELOG.md",
         "class": "justinholtweb\\sanka\\Plugin"
+    },
+    "require-dev": {
+        "craftcms/ecs": "dev-main",
+        "craftcms/phpstan": "dev-main",
+        "phpstan/phpstan": "^1.12 || ^2.2"
     }
 }

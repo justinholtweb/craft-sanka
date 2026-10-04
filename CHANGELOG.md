@@ -1,5 +1,32 @@
 # Changelog
 
+## 5.0.2 — 2026-10-04
+
+> {warning} Sanka no longer accepts the Google service account JSON pasted into its settings, because settings are saved to project config and committed with your site. Put the JSON in an environment variable and enter `$GOOGLE_INDEXING_KEY`, or enter the path to the key file. A key pasted in before this release keeps working, but it is in your repository: move it, and rotate it in Google Cloud if the repository has been shared. The AI crawler policy can now only be changed by an admin, where admin changes are allowed.
+
+### Security
+
+- **The Google service account's private key was stored in project config.** The settings screen
+  asked for the JSON, and settings are project config — so the key went into
+  `config/project/project.yaml` and from there into git, where anyone with the repository could
+  publish URLs as you. The field now takes an environment variable (`$GOOGLE_INDEXING_KEY`, holding
+  the JSON or a path) or a file path or alias, with Craft's suggestions, and refuses the JSON
+  itself. A variable that is only set in production is fine: the settings screen and the engine say
+  it isn't set on this environment, and nothing is sent.
+- **The settings screen rendered the stored key back into the page.** An already-stored key is now
+  never rendered: the field is left empty, saving keeps the key unless *Remove the stored key* is
+  ticked, and a warning says to move it. `craft sanka/diagnostics` warns too.
+- **The "Manage the AI crawler policy" permission let a non-admin write project config.** The
+  crawler policy and the extra robots.txt lines are plugin settings, so saving them now needs an
+  admin on an environment that allows admin changes, like every other setting — before, a
+  non-admin could change project config on a development machine, and in production the save
+  threw. Everyone else sees the policy read-only, with the reason. The permission is now
+  *Verify AI crawler log entries*, which is all it still grants.
+
+### Changed
+
+- PHPStan and ECS configuration, and the findings they raised tidied.
+
 ## 5.0.1 — 2026-08-28
 
 ### Fixed

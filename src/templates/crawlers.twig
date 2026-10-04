@@ -30,6 +30,12 @@
         </blockquote>
     {% endif %}
 
+    {% if not canChangePolicy %}
+        <blockquote class="note">
+            <p>{{ "The crawler policy is part of Sanka’s settings, which are saved to project config. An admin changes it on a development environment, and it is deployed with the rest of the site."|t('sanka') }}</p>
+        </blockquote>
+    {% endif %}
+
     <form method="post" accept-charset="UTF-8" id="sanka-policy">
         {{ csrfInput() }}
         {{ actionInput('sanka/crawlers/policy') }}
@@ -70,7 +76,7 @@
                                             { label: "Block"|t('sanka'), value: 'block' },
                                         ],
                                         value: settings.policyFor(agent.token),
-                                        disabled: not canManage,
+                                        disabled: not canChangePolicy,
                                     }) }}
                                 </td>
                                 {% if settings.crawlerLogEnabled %}
@@ -83,7 +89,7 @@
             </div>
         {% endfor %}
 
-        {% if canManage %}
+        {% if canChangePolicy %}
             {{ forms.textareaField({
                 label: "Extra robots.txt lines"|t('sanka'),
                 instructions: "Appended verbatim, after the policy and before the sitemaps."|t('sanka'),

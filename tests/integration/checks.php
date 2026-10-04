@@ -105,6 +105,18 @@ $plugin->engines->setHttpClient($http);
 $plugins->switchEdition('sanka', Plugin::EDITION_PRO);
 
 $account = FakeHttpClient::serviceAccount();
+
+/**
+ * `$NAME` for an environment variable holding `$value`. Since 5.0.2 the key setting refuses inline
+ * JSON — it is project config — so the checks supply the key the way a site would.
+ */
+function keyEnv(string $value, string $name = 'SANKA_CHECK_KEY'): string
+{
+    putenv("$name=$value");
+    $_SERVER[$name] = $_ENV[$name] = $value;
+
+    return '$' . $name;
+}
 $settings = $plugin->getSettings();
 $settings->setAttributes([
     'dryRun' => false,
@@ -114,7 +126,7 @@ $settings->setAttributes([
     'maxAttempts' => 3,
     'retryBackoff' => 60,
     'googleEnabled' => true,
-    'googleCredentials' => $account['json'],
+    'googleCredentials' => keyEnv($account['json']),
     'googleDailyQuota' => 200,
     'indexNowEnabled' => true,
     'indexNowKey' => 'sankacheck0123456789abcdef',
@@ -228,14 +240,14 @@ check('nothing is marked required, so a fresh install can save', function() {
 
 check('invalid service account JSON is rejected', function() {
     $s = new Settings();
-    $s->googleCredentials = '{not json';
+    $s->googleCredentials = keyEnv('{not json', 'SANKA_CHECK_TMP');
 
     return !$s->validate(['googleCredentials']) ?: 'accepted malformed JSON';
 });
 
 check('service account JSON missing client_email is rejected by name', function() {
     $s = new Settings();
-    $s->googleCredentials = '{"type":"service_account","private_key":"x"}';
+    $s->googleCredentials = keyEnv('{"type":"service_account","private_key":"x"}', 'SANKA_CHECK_TMP');
     $s->validate(['googleCredentials']);
 
     return str_contains(implode(' ', $s->getErrors('googleCredentials')), 'client_email')
@@ -244,7 +256,7 @@ check('service account JSON missing client_email is rejected by name', function(
 
 check('a real service account key validates', function() use ($account) {
     $s = new Settings();
-    $s->googleCredentials = $account['json'];
+    $s->googleCredentials = keyEnv($account['json'], 'SANKA_CHECK_TMP');
 
     return $s->validate(['googleCredentials']) ?: json_encode($s->getErrors());
 });

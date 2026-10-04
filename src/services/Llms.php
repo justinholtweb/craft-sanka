@@ -8,7 +8,6 @@ use Craft;
 use craft\base\Component;
 use craft\elements\Entry;
 use craft\helpers\StringHelper;
-use craft\helpers\UrlHelper;
 use craft\models\Section;
 use justinholtweb\sanka\Plugin;
 

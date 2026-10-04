@@ -7,7 +7,6 @@ namespace justinholtweb\sanka\console\controllers;
 use Craft;
 use craft\console\Controller;
 use craft\helpers\Console;
-use justinholtweb\sanka\engines\GoogleEngine;
 use justinholtweb\sanka\models\Edition;
 use justinholtweb\sanka\Plugin;
 use Throwable;
@@ -124,6 +123,10 @@ class DiagnosticsController extends Controller
 
         $summary = $plugin->getSettings()->credentialSummary();
         $this->line('Account', $summary ?? '—');
+
+        if ($plugin->getSettings()->storesInlineGoogleKey()) {
+            $this->warn('The private key is stored in Sanka\'s settings, so it is in project config and your repository. Move it to an environment variable or a file outside the web root, and rotate it if the repository has been shared.');
+        }
 
         // Signing is proved locally before anything is blamed on Google. A key that will not sign
         // is a settings problem; a key that signs and is refused is a Search Console problem, and

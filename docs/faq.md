@@ -123,5 +123,5 @@ With no SEO plugin to ask, Sanka falls back to each site's `/sitemap.xml`. Anyth
 the table wins over both.
 
 If SEOmatic also generates your `robots.txt`, ask `craft.sanka.robots()` for only the AI crawler
-policy rather than pasting the whole file underneath — see
-[the Twig section](usage.md#only-the-parts-you-need-from-robots).
+policy rather than pasting the whole file underneath. **Usage** covers it, under *Only the parts you
+need from `robots()`*.

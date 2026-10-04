@@ -128,8 +128,10 @@ Then, in **Settings → Sanka**:
 1. **Leave dry run on.**
 2. **IndexNow** — turn it on and generate a key. That is the whole setup; Sanka serves the key file.
 3. **Google** — create a service account in a Google Cloud project with the **Indexing API** enabled,
-   paste its JSON key, and then — the step everybody misses — **add the service account's client
-   email as an owner of the property in Search Console**. A 403 means you have not done this.
+   put its JSON key in an environment variable and enter `$GOOGLE_INDEXING_KEY` (or save the file
+   outside the web root and enter its path — never the JSON itself, since settings are project
+   config), and then — the step everybody misses — **add the service account's client email as an
+   owner of the property in Search Console**. A 403 means you have not done this.
 4. **Add a rule.** Sanka ships with auto-submit on and *no rules*, so it never starts spending quota
    on its own. A rule says: this section, these events, these engines.
 5. Run `php craft sanka/diagnostics`. It checks everything that could be wrong, in the order it
@@ -228,6 +230,9 @@ feature set instead of breaking, and upgrading restores exactly what was configu
   only a rate limit.
 - **A static `robots.txt` in your web root beats anything Craft routes.** Sanka detects one and says
   so, rather than letting a setting appear to work and do nothing.
+- **Settings are project config**, so the service account key is an environment variable or a file
+  path, never the JSON, and the crawler policy is changed by an admin where admin changes are
+  allowed, like every other setting.
 - **Nothing on a development domain will ever be submitted.** `.ddev.site`, `.test`, `localhost` and
   private addresses are refused with a reason, because every engine would refuse them too. There is
   a switch to override that for testing.
@@ -240,9 +245,10 @@ Integration checks run inside a Craft install:
 
 ```sh
 php /path/to/craft-sanka/tests/integration/checks.php
+php /path/to/craft-sanka/tests/integration/security.php   # key storage and the crawler policy, partly over HTTP
 ```
 
-162 checks, self-cleaning, everything prefixed `sanka-check-`. Every engine is exercised through a
+181 checks, self-cleaning, everything prefixed `sanka-check-`. Every engine is exercised through a
 fake transport, so the whole submission path — dispatcher, ledger, quota, batching, backoff, result
 interpretation — is covered without a single outbound request.
 

@@ -27,5 +27,5 @@ return [
 
     'View submissions and crawler activity' => 'View submissions and crawler activity',
     'Submit URLs and retry submissions' => 'Submit URLs and retry submissions',
-    'Manage the AI crawler policy and llms.txt' => 'Manage the AI crawler policy and llms.txt',
+    'Verify AI crawler log entries' => 'Verify AI crawler log entries',
 ];

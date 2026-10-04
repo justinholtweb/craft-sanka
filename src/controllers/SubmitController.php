@@ -7,7 +7,6 @@ namespace justinholtweb\sanka\controllers;
 use Craft;
 use craft\elements\Entry;
 use craft\web\Controller;
-use justinholtweb\sanka\errors\SankaException;
 use justinholtweb\sanka\models\Edition;
 use justinholtweb\sanka\Plugin;
 use justinholtweb\sanka\records\SubmissionRecord;
@@ -193,7 +192,7 @@ class SubmitController extends Controller
 
         try {
             $metadata = $google->metadata($url);
-        } catch (SankaException|Throwable $e) {
+        } catch (Throwable $e) {
             return $this->asJson(['success' => false, 'error' => $e->getMessage()]);
         }
 

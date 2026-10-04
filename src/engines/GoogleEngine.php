@@ -79,14 +79,20 @@ class GoogleEngine extends BaseEngine
     {
         $problems = [];
 
-        if (trim($this->settings->googleCredentials) === '') {
-            $problems[] = Craft::t('sanka', 'No service account key. Create one in Google Cloud with the Indexing API enabled, then paste its JSON here.');
+        if (($missing = $this->settings->googleCredentialsEnvMissing()) !== null) {
+            $problems[] = Craft::t('sanka', 'The service account key comes from {name}, which isn’t set on this environment.', ['name' => '$' . $missing]);
+
+            return $problems;
+        }
+
+        if ($this->settings->resolvedGoogleCredentials() === '') {
+            $problems[] = Craft::t('sanka', 'No service account key. Create one in Google Cloud with the Indexing API enabled, then put its JSON in an environment variable — or save the file outside the web root — and enter that here.');
 
             return $problems;
         }
 
         try {
-            ServiceAccountCredentials::resolve($this->settings->googleCredentials);
+            ServiceAccountCredentials::resolve($this->settings->resolvedGoogleCredentials());
         } catch (AuthException $e) {
             $problems[] = $e->getMessage();
         }
@@ -186,7 +192,7 @@ class GoogleEngine extends BaseEngine
     public function tokenProvider(): TokenProviderInterface
     {
         return $this->tokens ??= new ServiceAccountTokenProvider(
-            ServiceAccountCredentials::resolve($this->settings->googleCredentials),
+            ServiceAccountCredentials::resolve($this->settings->resolvedGoogleCredentials()),
             $this->http,
             ServiceAccountTokenProvider::SCOPE_INDEXING,
         );

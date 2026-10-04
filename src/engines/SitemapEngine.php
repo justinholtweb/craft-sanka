@@ -39,7 +39,7 @@ class SitemapEngine extends BaseEngine
      * Keyed by plugin handle, so a site without the plugin never loads its classes. The resolver is
      * called once per site and may return null or throw; either means “ask something else”.
      *
-     * @var array<string, callable(PluginInterface, int): ?string>
+     * @var array<string, array{class-string, string}> static callables, `(PluginInterface, int): ?string`
      */
     private const SITEMAP_PLUGINS = [
         'seomatic' => [self::class, 'seomaticSitemapUrl'],
@@ -128,6 +128,7 @@ class SitemapEngine extends BaseEngine
      * template needs rendering, and guarded by `method_exists` because this is another plugin's
      * internals and it is allowed to move them.
      */
+    /** @phpstan-ignore method.unused (called through SITEMAP_PLUGINS) */
     private static function seomaticSitemapUrl(PluginInterface $plugin, int $siteId): ?string
     {
         $sitemaps = $plugin->sitemaps ?? null;
@@ -189,7 +190,7 @@ class SitemapEngine extends BaseEngine
 
         foreach (self::SITEMAP_PLUGINS as $handle => $resolver) {
             if ($this->pluginUrls($handle, $resolver) !== []) {
-                return Craft::$app->getPlugins()->getPlugin($handle)?->name ?? $handle;
+                return Craft::$app->getPlugins()->getPlugin($handle)->name ?? $handle;
             }
         }
 

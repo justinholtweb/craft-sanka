@@ -6,6 +6,7 @@ namespace justinholtweb\sanka\models;
 
 use Craft;
 use craft\base\Model;
+use craft\helpers\App;
 use craft\helpers\StringHelper;
 use justinholtweb\sanka\engines\IndexNowEngine;
 use ReflectionNamedType;
@@ -38,10 +39,13 @@ class Settings extends Model
     public bool $googleEnabled = false;
 
     /**
-     * Raw service account JSON, or a path to the file Google Cloud downloaded.
+     * Where the service account key comes from: an environment variable (`$GOOGLE_INDEXING_KEY`)
+     * holding the JSON or a path, or a path / alias to the file Google Cloud downloaded.
      *
-     * Never rendered back into a template and never logged — {@see Settings::credentialSummary()}
-     * is what the settings screen shows.
+     * Settings are project config, so whatever is typed here is committed with the site. Inline
+     * JSON — the private key itself — is refused on save since 5.0.2; an install that stored one
+     * earlier keeps working, but the screen never renders it back and asks for it to be moved.
+     * Read it through {@see Settings::resolvedGoogleCredentials()}.
      */
     public string $googleCredentials = '';
 
@@ -190,7 +194,7 @@ class Settings extends Model
             [['indexNowEndpoint'], 'in', 'range' => array_keys(IndexNowEngine::ENDPOINTS)],
             [['robotsDisallowCp'], 'in', 'range' => self::CP_MODES],
             [['indexNowKey'], 'match', 'pattern' => '/^[A-Za-z0-9\-]{8,128}$/', 'skipOnEmpty' => true,
-                'message' => 'The IndexNow key must be 8–128 characters of letters, numbers and dashes.'],
+                'message' => 'The IndexNow key must be 8–128 characters of letters, numbers and dashes.', ],
             [['googleCredentials'], 'validateGoogleCredentials', 'skipOnEmpty' => true],
             [['sitemapUrls'], 'validateSitemapUrls', 'skipOnEmpty' => false],
             [['autoSubmitRules'], 'validateAutoSubmitRules', 'skipOnEmpty' => false],
@@ -210,6 +214,18 @@ class Settings extends Model
 
             return;
         }
+
+        // The settings screen never renders a stored inline key back, so it posts an empty field
+        // and this flag. Empty plus the flag means "unchanged", not "cleared" — unless the
+        // operator ticked the box to remove it.
+        if (!empty($values['googleCredentialsKept']) && trim((string)($values['googleCredentials'] ?? '')) === '') {
+            if (empty($values['googleCredentialsRemove'])) {
+                unset($values['googleCredentials']);
+            } else {
+                $values['googleCredentials'] = '';
+            }
+        }
+        unset($values['googleCredentialsKept'], $values['googleCredentialsRemove']);
 
         foreach ($values as $name => $value) {
             if (!property_exists($this, $name)) {
@@ -287,25 +303,72 @@ class Settings extends Model
     }
 
     /**
+     * The service account key as the engine should read it — JSON or a file path — with any
+     * environment variable or alias resolved. Empty when nothing is set, or when the setting names
+     * an environment variable this environment doesn't have.
+     */
+    public function resolvedGoogleCredentials(): string
+    {
+        $raw = trim($this->googleCredentials);
+
+        if ($raw === '' || $this->googleCredentialsEnvMissing() !== null) {
+            return '';
+        }
+
+        return trim((string)App::parseEnv($raw));
+    }
+
+    /**
+     * The variable name when the setting is `$NAME` and `NAME` isn't set here, otherwise null.
+     * A key that exists only in production is normal, so this is reported, never a validation error.
+     */
+    public function googleCredentialsEnvMissing(): ?string
+    {
+        if (preg_match('/^\$(\w+)$/', trim($this->googleCredentials), $m) && App::env($m[1]) === null) {
+            return $m[1];
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether the private key itself is stored in the setting — and so in project config. Only an
+     * install from before 5.0.2 can be in this state.
+     */
+    public function storesInlineGoogleKey(): bool
+    {
+        return str_starts_with(trim($this->googleCredentials), '{');
+    }
+
+    /**
      * A non-secret description of the configured service account, safe for the settings screen and
      * for a log line. Never returns any part of the private key.
      */
     public function credentialSummary(): ?string
     {
-        if (trim($this->googleCredentials) === '') {
+        $raw = trim($this->googleCredentials);
+
+        if ($raw === '') {
             return null;
         }
 
-        if (!str_starts_with(trim($this->googleCredentials), '{')) {
-            return Craft::t('sanka', 'Key file: {path}', ['path' => $this->googleCredentials]);
+        if (($missing = $this->googleCredentialsEnvMissing()) !== null) {
+            return Craft::t('sanka', '{name} isn’t set on this environment', ['name' => '$' . $missing]);
         }
 
-        $decoded = json_decode($this->googleCredentials, true);
+        $value = $this->resolvedGoogleCredentials();
+        $source = !$this->storesInlineGoogleKey() && $value !== $raw ? $raw . ' → ' : '';
+
+        if (!str_starts_with($value, '{')) {
+            return $source . Craft::t('sanka', 'Key file: {path}', ['path' => $value]);
+        }
+
+        $decoded = json_decode($value, true);
         $email = is_array($decoded) ? (string)($decoded['client_email'] ?? '') : '';
 
-        return $email !== ''
+        return $source . ($email !== ''
             ? $email
-            : Craft::t('sanka', 'Inline JSON ({bytes} bytes)', ['bytes' => strlen($this->googleCredentials)]);
+            : Craft::t('sanka', 'Inline JSON ({bytes} bytes)', ['bytes' => strlen($value)]));
     }
 
     /**
@@ -321,11 +384,31 @@ class Settings extends Model
 
     public function validateGoogleCredentials(string $attribute): void
     {
-        $value = trim($this->googleCredentials);
+        $raw = trim($this->googleCredentials);
 
-        if ($value === '') {
+        if ($raw === '') {
             return;
         }
+
+        // The private key pasted into a setting that is saved to project config — and from there
+        // committed. Refused unless it is the very value already stored, which an install from
+        // before 5.0.2 may have; that one keeps working until it is moved.
+        if (str_starts_with($raw, '{')) {
+            $stored = Craft::$app->getProjectConfig()->get('plugins.sanka.settings.googleCredentials');
+
+            if (!is_string($stored) || trim($stored) !== $raw) {
+                $this->addError($attribute, Craft::t('sanka', 'Don’t paste the key here: settings are saved to project config, which is committed with your site. Put the JSON in an environment variable and enter its name (`$GOOGLE_INDEXING_KEY`), or save the file outside the web root and enter its path.'));
+
+                return;
+            }
+        }
+
+        // A variable set only in production is normal; it is reported on the settings screen.
+        if ($this->googleCredentialsEnvMissing() !== null) {
+            return;
+        }
+
+        $value = $this->resolvedGoogleCredentials();
 
         if (!str_starts_with($value, '{')) {
             if (!is_file($value) || !is_readable($value)) {

@@ -66,10 +66,14 @@ they control whether your content trains Gemini and Apple Intelligence, and bloc
 effect on Google Search or on Siri. They will never appear in the visit log, because nothing
 fetches anything under those names.
 
+The policy is one of Sanka's settings, so it is changed by an admin on an environment where admin
+changes are allowed and deployed with project config. Anyone else with access to Sanka sees it
+read-only.
+
 The output is `robots.txt`, one group per agent. Sanka will serve it, or hand it to your own
 template as `craft.sanka.robots()` — which can leave out whatever your existing `robots.txt` already
-says, so a site running SEOmatic can take the crawler policy and nothing else. See
-[the Twig section](usage.md#only-the-parts-you-need-from-robots).
+says, so a site running SEOmatic can take the crawler policy and nothing else. **Usage** covers it,
+under *Only the parts you need from `robots()`*.
 
 ## The visit log
 

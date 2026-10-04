@@ -254,7 +254,7 @@ class Plugin extends BasePlugin
                         'label' => Craft::t('sanka', 'View submissions and crawler activity'),
                         'nested' => [
                             self::PERMISSION_SUBMIT => ['label' => Craft::t('sanka', 'Submit URLs and retry submissions')],
-                            self::PERMISSION_MANAGE_GEO => ['label' => Craft::t('sanka', 'Manage the AI crawler policy and llms.txt')],
+                            self::PERMISSION_MANAGE_GEO => ['label' => Craft::t('sanka', 'Verify AI crawler log entries')],
                         ],
                     ],
                 ],

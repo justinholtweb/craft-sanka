@@ -11,8 +11,14 @@ Google's API is the more involved of the two, and one step happens outside Craft
 
 1. In **Google Cloud**, create a project and enable the **Indexing API**.
 2. Create a **service account** in that project and download its **JSON key**.
-3. Paste the JSON into **Settings → Sanka → Service account key**. A file path works too, if the
-   web server can read it.
+3. Put the key where Sanka can read it **without it entering project config**, and enter that in
+   **Settings → Sanka → Service account key**:
+   - an **environment variable** holding the JSON (or a path to the file): enter `$GOOGLE_INDEXING_KEY`;
+   - or the **path** to the file, outside the web root: `@root/keys/indexing.json` or an absolute path.
+
+   Settings are saved to project config, which is committed with your site, so Sanka refuses the
+   JSON itself here. A variable that is only set in production is fine — the settings screen says
+   it isn't set on this environment, and nothing is sent until it is.
 4. **In Google Search Console, add the service account's client email as an *owner* of the
    property.**
 
@@ -131,10 +137,22 @@ public, cacheable and the same on nearly every install, so it leaks nothing.
 
 The settings screen shows exactly which lines your configuration produces.
 
+### Moving a key stored before 5.0.2
+
+Earlier versions accepted the JSON pasted into the setting, which put the private key in
+`config/project/project.yaml`. It keeps working, but the settings screen and `craft sanka/diagnostics`
+warn about it and never show it. To move it: put the JSON in an environment variable, enter
+`$GOOGLE_INDEXING_KEY` in the field and save. If the repository has been shared, delete the old key
+in Google Cloud and create a new one — it is in your git history.
+
 ## Permissions
 
 | Permission | Grants |
 |---|---|
 | View submissions and crawler activity | The Sanka section, read-only |
 | Submit URLs and retry submissions | The submit console, the retry buttons, draining the queue |
-| Manage the AI crawler policy and llms.txt | Saving the crawler policy and verifying visits |
+| Verify AI crawler log entries | Running reverse-DNS verification on the crawler log |
+
+The crawler policy and the extra robots.txt lines are settings, so like every Sanka setting they
+are changed by an admin on an environment where `allowAdminChanges` is on, and deployed with project
+config. Everyone else sees the policy screen read-only.

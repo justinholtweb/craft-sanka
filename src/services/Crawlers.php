@@ -306,9 +306,9 @@ class Crawlers extends Component
 
             return [
                 'agent' => (string)$row['agent'],
-                'label' => $agent?->label ?? (string)$row['agent'],
-                'vendor' => $agent?->vendor ?? '',
-                'purpose' => $agent?->purpose ?? '',
+                'label' => $agent->label ?? (string)$row['agent'],
+                'vendor' => $agent->vendor ?? '',
+                'purpose' => $agent->purpose ?? '',
                 'hits' => (int)$row['hits'],
                 'verified' => (int)$row['verified'],
                 'spoofed' => (int)$row['spoofed'],

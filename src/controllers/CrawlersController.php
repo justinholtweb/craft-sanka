@@ -46,14 +46,25 @@ class CrawlersController extends Controller
             'summary' => $settings->crawlerLogEnabled ? $plugin->crawlers->summary(30) : [],
             'robots' => $plugin->crawlers->robotsTxt(),
             'staticRobots' => $plugin->crawlers->staticRobotsPath(),
-            'canManage' => Craft::$app->getUser()->checkPermission(Plugin::PERMISSION_MANAGE_GEO),
+            'canChangePolicy' => self::canChangePolicy(),
         ]);
+    }
+
+    /**
+     * The policy and the extra robots.txt lines are plugin settings, which are project config — so
+     * changing them is an admin's job on an environment that allows admin changes, as Craft's own
+     * settings are. Before 5.0.2 the GEO permission was enough: a non-admin could change project
+     * config on a development machine, and in production the save threw.
+     */
+    public static function canChangePolicy(): bool
+    {
+        return Craft::$app->getUser()->getIsAdmin() && Craft::$app->getConfig()->getGeneral()->allowAdminChanges;
     }
 
     public function actionPolicy(): Response
     {
         $this->requirePostRequest();
-        $this->requirePermission(Plugin::PERMISSION_MANAGE_GEO);
+        $this->requireAdmin();
 
         $plugin = Plugin::getInstance();
         $settings = $plugin->getSettings();

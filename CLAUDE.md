@@ -81,10 +81,16 @@ of breaking, and upgrading restores exactly what was configured).
 1. **Nothing leaves the server in dry run**, and dry run is on by default on a fresh install.
 2. **Quota is checked before the call, not after the failure.**
 3. **A save storm must not cost quota** — cooldown, keyed on url+engine+type.
-4. **Credentials never reach the log, the ledger or a template.** `Settings::credentialSummary()` is
-   what the settings screen shows.
+4. **Credentials never reach the log, the ledger, a template — or project config.** The key setting
+   is an `$ENV` reference or a path, read through `Settings::resolvedGoogleCredentials()`; inline
+   JSON is refused unless it is the value a pre-5.0.2 install already stored. `credentialSummary()`
+   is what the settings screen shows, and a stored inline key is never rendered (the form posts
+   `googleCredentialsKept`, which `setAttributes()` reads as "unchanged").
 5. **Sanka fetches its own site and nothing else.** The audit's target is derived from Craft's site
    config, never from user input, so there is no SSRF surface to fence off.
+6. **Settings are project config, so only an admin where admin changes are allowed changes them.**
+   That includes the crawler policy (`CrawlersController::canChangePolicy()`); `sanka:manageGeo`
+   only verifies the crawler log.
 
 ## Traps found while building this
 
@@ -132,6 +138,12 @@ of breaking, and upgrading restores exactly what was configured).
 - **Another plugin's internals are not a contract.** `SitemapEngine` reaches SEOmatic through a
   guarded resolver keyed by plugin handle: `method_exists` first, `Throwable` caught, and a failure
   means “fall back to the guess”, never an exception on a settings screen.
+- **`App::parseEnv('$NAME')` returns `'$NAME'` unchanged when the variable isn't set**, not null or
+  empty — so "resolved" has to check for that explicitly, or the engine tries to read a file called
+  `$NAME`. `Settings::googleCredentialsEnvMissing()` is that check.
+- **`ProjectConfig::get()` on a just-`reset()` config returns associative arrays packed** as
+  `{__assoc__: [[k, v], …]}`. `ProjectConfig::unpackAssociativeArray()` (singular — the plural one
+  only unpacks the children).
 - **Google's batch responses are not ordered.** Parts are matched by `Content-ID` (returned prefixed
   with `response-`), never by position, and a part that is missing entirely is retried rather than
   assumed sent.
@@ -144,6 +156,8 @@ No local PHP on this Mac. Everything runs inside the plugin-testing container:
 
 ```sh
 docker exec -w /var/www/html ddev-plugin-testing-web php /var/www/craft-sanka/tests/integration/checks.php   # 181 checks
+docker exec -w /var/www/html ddev-plugin-testing-web php /var/www/craft-sanka/tests/integration/security.php # 19, key storage + crawler policy over HTTP; flips CRAFT_ALLOW_ADMIN_CHANGES briefly
+docker exec -w /sites/craft-sanka ddev-phpstan-runner-web bash -c 'vendor/bin/phpstan analyse --memory-limit=1G && vendor/bin/ecs check'
 docker exec ddev-plugin-testing-web bash -c 'find /var/www/craft-sanka/src -name "*.php" -print0 | xargs -0 -n1 php -l'
 ```
 

@@ -153,17 +153,35 @@
     on: settings.googleEnabled,
 }) }}
 
-{{ forms.textareaField({
+{% set inlineKey = settings.storesInlineGoogleKey() %}
+
+{% if inlineKey %}
+    <blockquote class="note warning">
+        <p>{{ "This service account’s private key is stored in Sanka’s settings — and so in project config, which is committed with your site. Put the JSON in an environment variable (or a file outside the web root), enter its name or path below, and rotate the key in Google Cloud if the repository has been shared."|t('sanka') }}</p>
+    </blockquote>
+    {{ hiddenInput('googleCredentialsKept', '1') }}
+{% endif %}
+
+{{ forms.autosuggestField({
     label: "Service account key"|t('sanka'),
-    instructions: "Paste the JSON Google Cloud downloaded, or give the path to the file. Create the service account in a project with the Indexing API enabled, then **add its client email as an owner of the property in Search Console** — that second step is the one everybody misses, and it is what a 403 means."|t('sanka'),
+    instructions: "An environment variable holding the JSON Google Cloud downloaded (or the path to it), or the path to the file itself. Not the JSON: settings are saved to project config. Create the service account in a project with the Indexing API enabled, then **add its client email as an owner of the property in Search Console** — that second step is the one everybody misses, and it is what a 403 means."|t('sanka'),
     id: 'googleCredentials',
     name: 'googleCredentials',
-    value: settings.googleCredentials,
-    rows: 5,
+    value: inlineKey ? '' : settings.googleCredentials,
+    suggestEnvVars: true,
+    suggestAliases: true,
     class: 'code',
-    placeholder: '{"type":"service_account", …}  —  or  /var/www/keys/indexing.json',
+    placeholder: inlineKey ? "Leave empty to keep the stored key"|t('sanka') : '$GOOGLE_INDEXING_KEY  —  or  @root/keys/indexing.json',
     errors: settings.getErrors('googleCredentials'),
 }) }}
+
+{% if inlineKey %}
+    {{ forms.checkboxField({
+        label: "Remove the stored key"|t('sanka'),
+        name: 'googleCredentialsRemove',
+        value: '1',
+    }) }}
+{% endif %}
 
 {% if settings.credentialSummary() %}
     <p class="light">{{ "Currently using"|t('sanka') }} <code>{{ settings.credentialSummary() }}</code></p>
